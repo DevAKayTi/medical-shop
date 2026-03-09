@@ -15,7 +15,6 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('shop_id')->constrained('shops');
             $table->foreignUuid('category_id')->nullable()->constrained('categories');
-            $table->foreignUuid('supplier_id')->nullable()->constrained('suppliers');
             $table->string('name', 191);
             $table->string('generic_name', 191)->nullable();
             $table->string('barcode', 191)->nullable();

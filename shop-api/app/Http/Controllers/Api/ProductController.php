@@ -48,7 +48,7 @@ class ProductController extends Controller
 
     public function show(Request $request, Product $product)
     {
-        return response()->json($product->load(['category', 'batches.supplier']));
+        return response()->json($product->load(['category', 'batches']));
     }
 
     public function update(Request $request, Product $product)
@@ -86,7 +86,7 @@ class ProductController extends Controller
 
     public function batches(Product $product)
     {
-        return response()->json($product->batches()->with('supplier')->orderBy('expiry_date')->get());
+        return response()->json($product->batches()->orderBy('expiry_date')->get());
     }
 
     public function storeBatch(Request $request, Product $product)
@@ -94,7 +94,6 @@ class ProductController extends Controller
         $user = $request->user();
         $data = $request->validate([
             'batch_number'    => 'required|string|max:100',
-            'supplier_id'     => 'nullable|uuid|exists:suppliers,id',
             'manufacture_date'=> 'nullable|date',
             'expiry_date'     => 'required|date',
             'quantity'        => 'required|integer|min:0',
@@ -113,7 +112,6 @@ class ProductController extends Controller
     {
         $data = $request->validate([
             'batch_number'    => 'sometimes|string|max:100',
-            'supplier_id'     => 'nullable|uuid|exists:suppliers,id',
             'manufacture_date'=> 'nullable|date',
             'expiry_date'     => 'sometimes|date',
             'quantity'        => 'sometimes|integer|min:0',
@@ -123,7 +121,7 @@ class ProductController extends Controller
         ]);
 
         $batch->update($data);
-        return response()->json($batch->load('supplier'));
+        return response()->json($batch);
     }
 
     public function destroyBatch(ProductBatch $batch)

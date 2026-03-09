@@ -61,4 +61,19 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Shop::class);
     }
+
+    public function shiftSessions()
+    {
+        return $this->hasMany(ShiftSession::class);
+    }
+
+    public function sales()
+    {
+        return $this->hasMany(Sale::class, 'cashier_id');
+    }
+
+    public function salesReturns()
+    {
+        return $this->hasMany(SalesReturn::class, 'cashier_id');
+    }
 }

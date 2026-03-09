@@ -8,6 +8,7 @@ import CustomersPage from "@/pages/dashboard/customers";
 import ReportsPage from "@/pages/dashboard/reports";
 import SettingsPage from "@/pages/dashboard/settings";
 import SalesPage from "@/pages/dashboard/sales/new";
+import PurchasesPage from "@/pages/dashboard/purchases";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route index element={<DashboardIndex />} />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="sales" element={<SalesPage />} />
+          <Route path="purchases" element={<PurchasesPage />} />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />

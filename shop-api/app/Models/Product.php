@@ -31,6 +31,23 @@ class Product extends Model
         'is_active',
     ];
 
+    protected $casts = [
+        'mrp'                   => 'decimal:2',
+        'purchase_price'        => 'decimal:2',
+        'selling_price'         => 'decimal:2',
+        'tax_rate'              => 'decimal:2',
+        'is_controlled_drug'    => 'boolean',
+        'prescription_required' => 'boolean',
+        'is_active'             => 'boolean',
+    ];
+
+    // ─── Relationships ────────────────────────────────────────────────
+
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -39,5 +56,40 @@ class Product extends Model
     public function batches()
     {
         return $this->hasMany(ProductBatch::class);
+    }
+
+    public function saleItems()
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+
+    public function salesReturnItems()
+    {
+        return $this->hasMany(SalesReturnItem::class);
+    }
+
+    /**
+     * Active (non-expired, is_active=true) batches with stock remaining.
+     */
+    public function activeBatches()
+    {
+        return $this->hasMany(ProductBatch::class)
+            ->where('is_active', true)
+            ->where('expiry_date', '>=', now())
+            ->where('quantity', '>', 0)
+            ->orderBy('expiry_date'); // FEFO order
+    }
+
+    // ─── Computed Helpers ─────────────────────────────────────────────
+
+    /**
+     * Total quantity across all batches (loaded or queried).
+     */
+    public function getTotalStockAttribute(): int
+    {
+        if ($this->relationLoaded('batches')) {
+            return $this->batches->sum('quantity');
+        }
+        return $this->batches()->sum('quantity');
     }
 }

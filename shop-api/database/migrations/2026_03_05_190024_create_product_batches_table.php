@@ -15,6 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('shop_id')->constrained('shops');
             $table->foreignUuid('product_id')->constrained('products');
+            $table->foreignUuid('supplier_id')->nullable()->constrained('suppliers');
             $table->string('batch_number', 100);
             $table->date('manufacture_date')->nullable();
             $table->date('expiry_date');

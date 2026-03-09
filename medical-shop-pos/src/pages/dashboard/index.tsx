@@ -1,16 +1,20 @@
-import { useMemo } from "react";
-import { Product, Sale, storageLib } from "@/lib/storage";
+import { useState, useEffect } from "react";
+import { storageLib } from "@/lib/storage";
+import { dashboardApi, DashboardStats } from "@/lib/dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Receipt, PackageSearch, AlertTriangle } from "lucide-react";
 
 export default function DashboardIndex() {
     const user = storageLib.getAuthUser();
-    const sales = useMemo(() => storageLib.getItem<Sale[]>("sales") || [], []);
-    const products = useMemo(() => storageLib.getItem<Product[]>("products") || [], []);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Compute basic stats
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
-    const lowStockProducts = products.filter(p => p.quantity < 10).length;
+    useEffect(() => {
+        dashboardApi.getStats()
+            .then(data => setStats(data))
+            .catch(err => console.error("Failed to load dashboard stats", err))
+            .finally(() => setLoading(false));
+    }, []);
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -21,52 +25,69 @@ export default function DashboardIndex() {
                 </p>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                        <Receipt className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">+20.1% from last month (Demo)</p>
-                    </CardContent>
-                </Card>
+            {loading ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i} className="animate-pulse">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-8 w-16 bg-slate-200 dark:bg-slate-800 rounded mb-2"></div>
+                                <div className="h-3 w-32 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                            <Receipt className="h-4 w-4 text-emerald-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">${Number(stats?.revenue?.current || 0).toLocaleString()}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {Number(stats?.revenue?.growth || 0) >= 0 ? "+" : ""}{stats?.revenue?.growth || 0}% from last month
+                            </p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Sales</CardTitle>
-                        <Receipt className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">+{sales.length}</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Total transactions</p>
-                    </CardContent>
-                </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Sales</CardTitle>
+                            <Receipt className="h-4 w-4 text-blue-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">+{stats?.sales_count || 0}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Total transactions this month</p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Active Products</CardTitle>
-                        <PackageSearch className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">+{products.length}</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">In catalog</p>
-                    </CardContent>
-                </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Active Products</CardTitle>
+                            <PackageSearch className="h-4 w-4 text-indigo-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats?.products?.active || 0}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">In catalog</p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-500">Low Stock</CardTitle>
-                        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-500">{lowStockProducts}</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Items needing reorder</p>
-                    </CardContent>
-                </Card>
-            </div>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-500">Low Stock</CardTitle>
+                            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-amber-600 dark:text-amber-500">{stats?.products?.low_stock || 0}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">Items needing reorder</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }
