@@ -34,9 +34,37 @@ function CustomerForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name.trim()) { setErrors({ name: "Name is required." }); return; }
+        setErrors({});
+
+        const newErrors: Record<string, string> = {};
+        if (!form.name.trim()) newErrors.name = "Name is required.";
+        if (!form.phone?.trim()) newErrors.phone = "Phone number is required.";
+
+        if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+            newErrors.email = "Invalid email format.";
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
         setSaving(true);
-        try { await onSave(form); } finally { setSaving(false); }
+        try {
+            await onSave(form);
+        } catch (err: any) {
+            if (err.response?.data?.errors) {
+                const apiErrors: Record<string, string> = {};
+                Object.entries(err.response.data.errors).forEach(([key, msgs]: [string, any]) => {
+                    apiErrors[key] = Array.isArray(msgs) ? msgs[0] : msgs;
+                });
+                setErrors(apiErrors);
+            } else {
+                setErrors({ submit: err.response?.data?.message || "Failed to save customer." });
+            }
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -48,34 +76,76 @@ function CustomerForm({
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name *</label>
-                        <Input value={form.name} onChange={e => set("name", e.target.value)} placeholder="Patient / Customer Name" className="mt-1" />
+                        <Input
+                            value={form.name}
+                            onChange={e => set("name", e.target.value)}
+                            placeholder="Patient / Customer Name"
+                            className={`mt-1 ${errors.name ? 'border-red-500' : ''}`}
+                        />
                         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone</label>
-                        <Input value={form.phone ?? ""} onChange={e => set("phone", e.target.value)} placeholder="+95 9..." className="mt-1" />
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone *</label>
+                        <Input
+                            value={form.phone ?? ""}
+                            onChange={e => set("phone", e.target.value)}
+                            placeholder="+95 9..."
+                            className={`mt-1 ${errors.phone ? 'border-red-500' : ''}`}
+                            required
+                        />
+                        {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
-                        <Input type="email" value={form.email ?? ""} onChange={e => set("email", e.target.value)} placeholder="customer@email.com" className="mt-1" />
+                        <Input
+                            type="email"
+                            value={form.email ?? ""}
+                            onChange={e => set("email", e.target.value)}
+                            placeholder="customer@email.com"
+                            className={`mt-1 ${errors.email ? 'border-red-500' : ''}`}
+                        />
+                        {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Date of Birth</label>
-                        <Input type="date" value={form.date_of_birth ?? ""} onChange={e => set("date_of_birth", e.target.value)} className="mt-1" />
+                        <Input
+                            type="date"
+                            value={form.date_of_birth ?? ""}
+                            onChange={e => set("date_of_birth", e.target.value)}
+                            className={`mt-1 ${errors.date_of_birth ? 'border-red-500' : ''}`}
+                        />
+                        {errors.date_of_birth && <p className="text-red-500 text-xs mt-1">{errors.date_of_birth}</p>}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</label>
-                        <select value={form.gender ?? ""} onChange={e => set("gender", e.target.value)} className="mt-1 w-full h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select
+                            value={form.gender ?? ""}
+                            onChange={e => set("gender", e.target.value)}
+                            className={`mt-1 w-full h-10 rounded-md border ${errors.gender ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'} bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        >
                             <option value="">Not specified</option>
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                             <option value="other">Other</option>
                         </select>
+                        {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                     </div>
                     <div className="md:col-span-2">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Address</label>
-                        <textarea value={form.address ?? ""} onChange={e => set("address", e.target.value)} rows={2} placeholder="Street, city..." className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <textarea
+                            value={form.address ?? ""}
+                            onChange={e => set("address", e.target.value)}
+                            rows={2}
+                            placeholder="Street, city..."
+                            className={`mt-1 w-full rounded-md border ${errors.address ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'} bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        />
+                        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
                     </div>
+                    {errors.submit && (
+                        <div className="md:col-span-2 p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-200">
+                            {errors.submit}
+                        </div>
+                    )}
                     <div className="md:col-span-2 flex gap-3 pt-2">
                         <Button type="submit" disabled={saving}>{saving ? "Saving…" : initial ? "Update Customer" : "Add Customer"}</Button>
                         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>

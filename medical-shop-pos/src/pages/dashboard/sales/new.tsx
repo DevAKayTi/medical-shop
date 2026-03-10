@@ -4,9 +4,11 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ApiSale, CreateSalePayload, saleApi, customerApi, ApiCustomer } from "@/lib/sales";
 import { ApiProduct, productApi } from "@/lib/inventory";
+import { registerApi, shiftSessionApi, ApiCashRegister, ApiShiftSession } from "@/lib/registers";
+import { storageLib } from "@/lib/storage";
 import {
     Search, CheckCircle2, FileText, Plus, Minus,
-    StickyNote, X, ShoppingCart, UserCheck
+    StickyNote, X, ShoppingCart, UserCheck, Store, LogOut
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 
@@ -44,14 +46,82 @@ export default function POSPage() {
     const [lastSale, setLastSale] = useState<ApiSale | null>(null);
     const receiptRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        Promise.all([productApi.list(), customerApi.list()])
-            .then(([prods, custs]) => {
+    // Shift Session States
+    const [activeSession, setActiveSession] = useState<ApiShiftSession | null>(null);
+    const [registers, setRegisters] = useState<ApiCashRegister[]>([]);
+    const [openingCash, setOpeningCash] = useState<string>("");
+    const [shiftNotes, setShiftNotes] = useState("");
+    const [startingShift, setStartingShift] = useState(false);
+    const [closingShift, setClosingShift] = useState(false);
+    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [selectedRegisterId, setSelectedRegisterId] = useState("");
+    const [closingCash, setClosingCash] = useState("");
+
+    const loadData = () => {
+        setLoading(true);
+        const currentUser = storageLib.getAuthUser();
+
+        Promise.all([
+            productApi.list(),
+            customerApi.list(),
+            shiftSessionApi.list({ status: "open", user_id: currentUser?.id }),
+            registerApi.list({ is_active: true })
+        ])
+            .then(([prods, custs, sessionsData, regs]) => {
                 setProducts(prods);
                 setCustomers(custs.data || []);
+                // Find if the current user has an open session
+                if (sessionsData.data && sessionsData.data.length > 0) {
+                    setActiveSession(sessionsData.data[0]);
+                } else {
+                    setActiveSession(null);
+                }
+                setRegisters(regs);
             })
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadData();
     }, []);
+
+    const handleOpenShift = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedRegisterId) return;
+        setStartingShift(true);
+        try {
+            const session = await shiftSessionApi.open({
+                register_id: selectedRegisterId,
+                opening_cash: parseFloat(openingCash) || 0,
+                notes: shiftNotes
+            });
+            setActiveSession(session);
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Failed to start shift.");
+        } finally {
+            setStartingShift(false);
+        }
+    };
+
+    const handleCloseShift = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!activeSession) return;
+        setClosingShift(true);
+        try {
+            await shiftSessionApi.close(activeSession.id, {
+                closing_cash: parseFloat(closingCash) || 0,
+                notes: shiftNotes
+            });
+            setShowCloseModal(false);
+            setClosingCash("");
+            setShiftNotes("");
+            loadData(); // Will set activeSession to null
+        } catch (err: any) {
+            alert(err.response?.data?.message || "Failed to close shift.");
+        } finally {
+            setClosingShift(false);
+        }
+    };
 
     const handlePrint = useReactToPrint({ contentRef: receiptRef });
 
@@ -141,6 +211,8 @@ export default function POSPage() {
         try {
             const payload: CreateSalePayload = {
                 customer_id: selectedCustomerId || null,
+                session_id: activeSession?.id || null,
+                register_id: activeSession?.register_id || null,
                 subtotal: parseFloat(subtotal.toFixed(2)),
                 discount: parseFloat(totalDiscount.toFixed(2)),
                 tax: parseFloat(totalTax.toFixed(2)),
@@ -232,14 +304,166 @@ export default function POSPage() {
         );
     }
 
+    // ─── Shift Session Modal ───────────────────────────────────────────
+
+    if (!loading && !activeSession) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full py-12 animate-in fade-in duration-500">
+                <Card className="w-full max-w-md shadow-lg border-blue-100 dark:border-blue-900/30">
+                    <CardHeader className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30">
+                        <CardTitle className="text-xl flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                            <Store className="h-5 w-5" /> Start Shift Session
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <form onSubmit={handleOpenShift} className="space-y-4">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Cash Register *</label>
+                                <select
+                                    className="mt-1 w-full h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={selectedRegisterId}
+                                    onChange={e => setSelectedRegisterId(e.target.value)}
+                                    required
+                                >
+                                    <option value="">-- Choose Register --</option>
+                                    {registers.map(r => (
+                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                    ))}
+                                </select>
+                                {registers.length === 0 && (
+                                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                        No active registers available. Please create one in Settings.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Opening Cash Amount</label>
+                                <div className="relative mt-1">
+                                    <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
+                                    <Input
+                                        type="number"
+                                        placeholder="0.00"
+                                        className="pl-7"
+                                        min="0"
+                                        step="0.01"
+                                        value={openingCash}
+                                        onChange={e => setOpeningCash(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (Optional)</label>
+                                <textarea
+                                    className="mt-1 w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 flex min-h-[80px] bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Starting shift notes..."
+                                    value={shiftNotes}
+                                    onChange={e => setShiftNotes(e.target.value)}
+                                />
+                            </div>
+
+                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={startingShift || !selectedRegisterId}>
+                                {startingShift ? "Starting Shift..." : "Open Shift & Start Selling"}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     // ─── POS UI ────────────────────────────────────────────────────────
 
     return (
         <div className="flex flex-col xl:flex-row gap-4 h-full animate-in fade-in duration-400" style={{ minHeight: "calc(100vh - 8rem)" }}>
 
+            {showCloseModal && activeSession && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <Card className="w-full max-w-md shadow-lg">
+                        <CardHeader className="border-b dark:border-slate-800">
+                            <CardTitle className="text-xl">End Shift Session</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <form onSubmit={handleCloseShift} className="space-y-4">
+                                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Opening Cash:</span>
+                                        <span className="font-semibold">{Number(activeSession.opening_cash).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Total Sales:</span>
+                                        <span className="font-semibold text-emerald-600">{Number(activeSession.total_sales).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-500">Total Refunds:</span>
+                                        <span className="font-semibold text-red-500">{Number(activeSession.total_refunds).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t pt-2 mt-2 dark:border-slate-800 font-bold">
+                                        <span>Expected Drawer:</span>
+                                        <span>{(Number(activeSession.opening_cash) + Number(activeSession.total_sales) - Number(activeSession.total_refunds)).toFixed(2)}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Actual Closing Cash</label>
+                                    <div className="relative mt-1">
+                                        <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
+                                        <Input
+                                            type="number"
+                                            placeholder="0.00"
+                                            className="pl-7"
+                                            min="0"
+                                            step="0.01"
+                                            value={closingCash}
+                                            onChange={e => setClosingCash(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (Optional)</label>
+                                    <textarea
+                                        className="mt-1 w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 flex min-h-[80px] bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Closing shift notes..."
+                                        value={shiftNotes}
+                                        onChange={e => setShiftNotes(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-2">
+                                    <Button type="submit" className="flex-1 bg-red-600 hover:bg-red-700 text-white" disabled={closingShift}>
+                                        {closingShift ? "Closing..." : "Close Shift"}
+                                    </Button>
+                                    <Button type="button" variant="outline" className="flex-1" onClick={() => setShowCloseModal(false)}>
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
             {/* LEFT: product grid */}
             <div className="flex-1 flex flex-col gap-4 min-h-0">
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Point of Sale</h1>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Point of Sale</h1>
+                        {activeSession && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                <Store className="h-3.5 w-3.5" />
+                                {activeSession.register?.name || "Unknown Register"}
+                            </span>
+                        )}
+                    </div>
+                    {activeSession && (
+                        <Button variant="outline" size="sm" onClick={() => setShowCloseModal(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/50">
+                            <LogOut className="h-4 w-4 mr-2" /> End Shift
+                        </Button>
+                    )}
+                </div>
 
                 <Card className="flex-1 flex flex-col overflow-hidden">
                     <CardHeader className="pb-3 shrink-0">

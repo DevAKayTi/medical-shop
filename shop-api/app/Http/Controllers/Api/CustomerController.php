@@ -30,8 +30,8 @@ class CustomerController extends Controller
     {
         $data = $request->validate([
             'name'          => 'required|string|max:191',
-            'phone'         => 'nullable|string|max:30',
-            'email'         => 'nullable|email|max:191',
+            'phone'         => 'required|string|max:30|unique:customers,phone,NULL,id,shop_id,' . Auth::user()->shop_id,
+            'email'         => 'nullable|email|max:191|unique:customers,email,NULL,id,shop_id,' . Auth::user()->shop_id,
             'date_of_birth' => 'nullable|date',
             'gender'        => 'nullable|in:male,female,other',
             'address'       => 'nullable|string',
@@ -57,8 +57,8 @@ class CustomerController extends Controller
 
         $data = $request->validate([
             'name'          => 'sometimes|string|max:191',
-            'phone'         => 'nullable|string|max:30',
-            'email'         => 'nullable|email|max:191',
+            'phone'         => 'required|string|max:30|unique:customers,phone,' . $customer->id . ',id,shop_id,' . Auth::user()->shop_id,
+            'email'         => 'nullable|email|max:191|unique:customers,email,' . $customer->id . ',id,shop_id,' . Auth::user()->shop_id,
             'date_of_birth' => 'nullable|date',
             'gender'        => 'nullable|in:male,female,other',
             'address'       => 'nullable|string',

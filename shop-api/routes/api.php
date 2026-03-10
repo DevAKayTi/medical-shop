@@ -57,6 +57,11 @@ Route::middleware('auth:api')->group(function () {
     // ── Customers ─────────────────────────────────────────────────────
     Route::apiResource('customers', CustomerController::class);
 
+    // ── Cash Registers & Shift Sessions ───────────────────────────────
+    Route::apiResource('cash-registers', \App\Http\Controllers\Api\CashRegisterController::class);
+    Route::apiResource('shift-sessions', \App\Http\Controllers\Api\ShiftSessionController::class)->only(['index', 'store', 'show']);
+    Route::post('shift-sessions/{shiftSession}/close', [\App\Http\Controllers\Api\ShiftSessionController::class, 'close']);
+
     // ── Sales (POS) ───────────────────────────────────────────────────
     Route::apiResource('sales', SaleController::class)->only(['index', 'store', 'show', 'destroy']);
 

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { User, ShopInfo } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
-import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock } from "lucide-react";
 
 interface SidebarProps {
     user: User;
@@ -16,13 +16,14 @@ export function Sidebar({ user, shop }: SidebarProps) {
         navigate("/login");
     };
 
-    // Define route mapping by role
     const navItems = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["Admin", "Manager", "Cashier"] },
         { name: "Inventory", href: "/dashboard/inventory", icon: PackageSearch, roles: ["Admin", "Manager"] },
         { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart, roles: ["Admin", "Manager"] },
         { name: "Sales & Billing", href: "/dashboard/sales", icon: Receipt, roles: ["Admin", "Manager", "Cashier"] },
         { name: "Customers", href: "/dashboard/customers", icon: Users, roles: ["Admin", "Manager", "Cashier"] },
+        { name: "Cash Registers", href: "/dashboard/registers", icon: Store, roles: ["Admin", "Manager"] },
+        { name: "Shift History", href: "/dashboard/shifts", icon: Clock, roles: ["Admin", "Manager"] },
         { name: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["Admin", "Manager"] },
         { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["Admin"] },
     ];

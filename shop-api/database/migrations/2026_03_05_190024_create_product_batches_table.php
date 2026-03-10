@@ -21,6 +21,7 @@ return new class extends Migration
             $table->date('expiry_date');
             $table->integer('quantity')->default(0);
             $table->decimal('purchase_price', 10, 2)->nullable();
+            $table->decimal('selling_price', 10, 2);
             $table->decimal('mrp', 10, 2)->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

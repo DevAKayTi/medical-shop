@@ -17,7 +17,34 @@ class DatabaseSeeder extends Seeder
     {
         // Setup comprehensive realistic data
         $this->call([
-            RealisticDatabaseSeeder::class,
+            // RealisticDatabaseSeeder::class,
+            ShopSeeder::class,
+            ShopSettingSeeder::class,
+            RolePermissionSeeder::class,
+            UserSeeder::class,
+            CategorySeeder::class,
+            SupplierSeeder::class,
+            ProductSeeder::class,
+            // InventoryLedgerSeeder::class,
+            // StockAdjustmentSeeder::class,
+            // StockTransferSeeder::class,
+            PurchaseSeeder::class,
+            // PurchaseReturnSeeder::class,
+            // PurchaseReturnItemSeeder::class,
+            CustomerSeeder::class,
+            // CashRegisterSeeder::class,
+            // ShiftSessionSeeder::class,
+            // SaleSeeder::class,
+            // SaleItemSeeder::class,
+            // SalePaymentSeeder::class,
+            // SalesReturnSeeder::class,
+            // SalesReturnItemSeeder::class,
+            // DailySalesReportSeeder::class,
+            // MonthlySalesReportSeeder::class,
+            // AuditLogSeeder::class,
+            // InventorySnapshotSeeder::class,
+            // LoginLogSeeder::class,
+            // ProductSalesReportSeeder::class,
         ]);
     }
 }

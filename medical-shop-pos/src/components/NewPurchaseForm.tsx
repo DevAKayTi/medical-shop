@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { ApiSupplier, ApiProduct, ApiProductBatch, productApi } from "@/lib/inventory";
 import { CreatePurchasePayload } from "@/lib/purchases";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +22,7 @@ interface LineItem {
     manufacture_date?: string;
     quantity: number;
     purchase_price: number;
+    selling_price: number;
     mrp?: number;
     total: number;
     existingBatches?: ApiProductBatch[];
@@ -63,9 +64,10 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
             product_name: p.name,
             batch_id: null,
             quantity: 1,
-            purchase_price: p.purchase_price || 0,
+            purchase_price: 0,
+            selling_price: p.mrp || 0,
             mrp: p.mrp || 0,
-            total: p.purchase_price || 0,
+            total: 0,
             existingBatches: batches,
             selectedBatchMode: 'new',
         };
@@ -91,6 +93,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                 const batch = l.existingBatches?.find(b => b.id === value);
                 if (batch) {
                     updated.purchase_price = batch.purchase_price || l.purchase_price;
+                    updated.selling_price = batch.selling_price || l.selling_price;
                     updated.mrp = batch.mrp || l.mrp;
                     updated.total = Number(updated.purchase_price) * Number(updated.quantity);
                 }
@@ -110,7 +113,9 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
         if (lines.length === 0) errs.push("Add at least one product.");
         lines.forEach((l, i) => {
             if (!l.quantity || l.quantity < 1) errs.push(`Line ${i + 1}: Quantity must be ≥ 1.`);
-            if (l.purchase_price < 0) errs.push(`Line ${i + 1}: Price cannot be negative.`);
+            if (l.purchase_price < 0) errs.push(`Line ${i + 1}: Purchase price cannot be negative.`);
+            if (l.selectedBatchMode === 'new' && l.selling_price < l.purchase_price) errs.push(`Line ${i + 1}: Selling price must be ≥ purchase price.`);
+            if (l.selectedBatchMode === 'new' && !l.batch_number?.trim()) errs.push(`Line ${i + 1}: Batch number is required for a new batch.`);
             if (l.selectedBatchMode === 'new' && !l.expiry_date) errs.push(`Line ${i + 1}: Expiry date is required for a new batch.`);
             if (l.selectedBatchMode === 'existing' && !l.batch_id) errs.push(`Line ${i + 1}: Please select an existing batch.`);
         });
@@ -137,6 +142,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                     batch_id: l.selectedBatchMode === 'existing' ? l.batch_id : null,
                     quantity: Number(l.quantity),
                     purchase_price: Number(l.purchase_price),
+                    selling_price: Number(l.selling_price),
                     mrp: l.mrp ? Number(l.mrp) : null,
                     total: Number(l.total),
                     batch_number: l.selectedBatchMode === 'new' ? l.batch_number || null : null,
@@ -273,7 +279,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                     <div>
                                         <label className="text-xs text-slate-500 mb-1 block">Qty *</label>
                                         <Input
@@ -294,6 +300,17 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                         />
                                     </div>
                                     <div>
+                                        <label className="text-xs text-slate-500 mb-1 block">Selling Price *</label>
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={line.selling_price}
+                                            onChange={e => updateLine(idx, 'selling_price', e.target.value)}
+                                            disabled={line.selectedBatchMode === 'existing'}
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="text-xs text-slate-500 mb-1 block">MRP</label>
                                         <Input
                                             type="number"
@@ -301,6 +318,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                             step="0.01"
                                             value={line.mrp || ""}
                                             onChange={e => updateLine(idx, 'mrp', e.target.value)}
+                                            disabled={line.selectedBatchMode === 'existing'}
                                         />
                                     </div>
                                     <div>
@@ -333,7 +351,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                 {line.selectedBatchMode === 'new' && (
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         <div>
-                                            <label className="text-xs text-slate-500 mb-1 block">Batch Number</label>
+                                            <label className="text-xs text-slate-500 mb-1 block">Batch Number *</label>
                                             <Input
                                                 placeholder="e.g. B-2024-001"
                                                 value={line.batch_number || ""}

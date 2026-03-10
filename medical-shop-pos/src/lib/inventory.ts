@@ -35,7 +35,6 @@ export interface ApiProduct {
     unit: string | null;
     mrp: number;
     purchase_price: number | null;
-    selling_price: number;
     tax_rate: number;
     is_controlled_drug: boolean;
     prescription_required: boolean;
@@ -54,6 +53,7 @@ export interface ApiProductBatch {
     expiry_date: string;
     quantity: number;
     purchase_price: number | null;
+    selling_price: number;
     mrp: number | null;
     is_active: boolean;
     supplier_id?: string | null;
@@ -71,6 +71,7 @@ export interface ApiStockAdjustment {
     adjusted_by: string;
     product?: ApiProduct;
     batch?: ApiProductBatch;
+    user?: { name: string };
     created_at: string;
 }
 

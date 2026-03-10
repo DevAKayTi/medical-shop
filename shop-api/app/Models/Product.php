@@ -23,7 +23,6 @@ class Product extends Model
         'unit',
         'mrp',
         'purchase_price',
-        'selling_price',
         'tax_rate',
         'is_controlled_drug',
         'prescription_required',
@@ -34,7 +33,6 @@ class Product extends Model
     protected $casts = [
         'mrp'                   => 'decimal:2',
         'purchase_price'        => 'decimal:2',
-        'selling_price'         => 'decimal:2',
         'tax_rate'              => 'decimal:2',
         'is_controlled_drug'    => 'boolean',
         'prescription_required' => 'boolean',

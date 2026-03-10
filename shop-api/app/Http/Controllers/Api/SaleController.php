@@ -8,7 +8,7 @@ use App\Models\SaleItem;
 use App\Models\SalePayment;
 use App\Models\Customer;
 use App\Models\ProductBatch;
-use App\Models\InventoryLedger;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +16,13 @@ use Illuminate\Support\Str;
 
 class SaleController extends Controller
 {
+    protected InventoryService $inventoryService;
+
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+
     // ─── List ────────────────────────────────────────────────────────
 
     public function index(Request $request)
@@ -111,6 +118,12 @@ class SaleController extends Controller
                 'sold_at'        => $validated['sold_at'] ?? now(),
             ]);
 
+            // Update shift session totals if present
+            if ($sale->session_id) {
+                \App\Models\ShiftSession::where('id', $sale->session_id)
+                    ->increment('total_sales', $sale->total);
+            }
+
             // Create sale items & deduct stock (FEFO)
             foreach ($validated['items'] as $item) {
                 SaleItem::create([
@@ -128,10 +141,17 @@ class SaleController extends Controller
 
                 // Deduct from specified batch or FEFO
                 if (!empty($item['batch_id'])) {
-                    $batch = ProductBatch::find($item['batch_id']);
-                    if ($batch) {
-                        $batch->decrement('quantity', $item['quantity']);
-                    }
+                    $this->inventoryService->adjustStock(
+                        $shopId,
+                        $item['product_id'],
+                        $item['batch_id'],
+                        $item['quantity'],
+                        'debit',
+                        'sale',
+                        $sale->id,
+                        "Sale #{$sale->invoice_number}",
+                        $cashierId
+                    );
                 } else {
                     // FEFO: deduct from earliest expiring active batch
                     $remaining = $item['quantity'];
@@ -146,21 +166,22 @@ class SaleController extends Controller
                     foreach ($batches as $batch) {
                         if ($remaining <= 0) break;
                         $deduct = min($remaining, $batch->quantity);
-                        $batch->decrement('quantity', $deduct);
+                        
+                        $this->inventoryService->adjustStock(
+                            $shopId,
+                            $item['product_id'],
+                            $batch->id,
+                            $deduct,
+                            'debit',
+                            'sale',
+                            $sale->id,
+                            "Sale #{$sale->invoice_number} (FEFO)",
+                            $cashierId
+                        );
+
                         $remaining -= $deduct;
                     }
                 }
-
-                // InventoryLedger entry
-                InventoryLedger::create([
-                    'shop_id'    => $shopId,
-                    'product_id' => $item['product_id'],
-                    'batch_id'   => $item['batch_id'] ?? null,
-                    'type'       => 'sale',
-                    'quantity'   => -$item['quantity'],
-                    'note'       => "Sale #{$sale->invoice_number}",
-                    'user_id'    => $cashierId,
-                ]);
             }
 
             // Payments
@@ -206,8 +227,22 @@ class SaleController extends Controller
         $this->authorizeShop($sale);
         abort_if($sale->status !== 'completed', 422, 'Only completed sales can be voided.');
 
-        $sale->update(['status' => 'refunded']);
-        return response()->json(['message' => 'Sale voided.']);
+        DB::beginTransaction();
+        try {
+            $sale->update(['status' => 'refunded']);
+
+            // Update shift session refunds if present
+            if ($sale->session_id) {
+                \App\Models\ShiftSession::where('id', $sale->session_id)
+                    ->increment('total_refunds', $sale->total);
+            }
+            
+            DB::commit();
+            return response()->json(['message' => 'Sale voided.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to void sale.'], 500);
+        }
     }
 
     private function authorizeShop(Sale $sale): void

@@ -9,6 +9,7 @@ export interface ApiPurchaseItem {
     batch_id?: string | null;
     quantity: number;
     purchase_price: number;
+    selling_price: number;
     mrp?: number | null;
     total: number;
     batch_number?: string | null;
@@ -43,22 +44,29 @@ export interface ApiPurchaseReturn {
     id: string;
     shop_id: string;
     purchase_id: string;
+    supplier_id: string;
     return_number: string;
     status: 'pending' | 'completed' | 'cancelled';
     reason: string | null;
     total: number;
     created_at: string;
+    purchase?: ApiPurchase;
+    supplier?: ApiSupplier;
     items?: ApiPurchaseReturnItem[];
+    returnedBy?: { name: string };
 }
 
 export interface ApiPurchaseReturnItem {
     id?: string;
+    purchase_return_id: string;
+    purchase_item_id: string;
     product_id: string;
     batch_id?: string | null;
     quantity: number;
-    purchase_price: number;
+    price: number;
     total: number;
     product?: ApiProduct;
+    batch?: ApiProductBatch;
 }
 
 export interface CreatePurchasePayload {
@@ -110,12 +118,32 @@ export const purchaseApi = {
 // ─── Purchase Return API ───────────────────────────────────────────────
 
 export const purchaseReturnApi = {
-    list: async () => {
-        const res = await api.get<{ data: ApiPurchaseReturn[] }>('/purchase-returns');
-        return res.data.data;
+    list: async (params?: { purchase_id?: string; status?: string }) => {
+        const res = await api.get<{ data: ApiPurchaseReturn[] }>('/purchase-returns', { params });
+        return res.data;
     },
 
-    create: async (data: { purchase_id: string; reason?: string; items: { product_id: string; batch_id?: string; quantity: number; purchase_price: number; total: number }[] }) => {
+    get: async (id: string) => {
+        const res = await api.get<ApiPurchaseReturn>(`/purchase-returns/${id}`);
+        return res.data;
+    },
+
+    create: async (data: {
+        purchase_id: string;
+        supplier_id: string;
+        return_number: string;
+        total: number;
+        reason?: string;
+        status?: 'pending' | 'completed';
+        items: {
+            purchase_item_id: string;
+            product_id: string;
+            batch_id?: string | null;
+            quantity: number;
+            price: number;
+            total: number;
+        }[];
+    }) => {
         const res = await api.post<ApiPurchaseReturn>('/purchase-returns', data);
         return res.data;
     },

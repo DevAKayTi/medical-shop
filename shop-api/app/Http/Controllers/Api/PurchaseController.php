@@ -63,6 +63,7 @@ class PurchaseController extends Controller
             'items.*.batch_id'      => 'nullable|uuid|exists:product_batches,id',
             'items.*.quantity'      => 'required|integer|min:1',
             'items.*.purchase_price'=> 'required|numeric|min:0',
+            'items.*.selling_price' => 'nullable|numeric|min:0',
             'items.*.mrp'           => 'nullable|numeric|min:0',
             'items.*.total'         => 'required|numeric|min:0',
             'items.*.batch_number'  => 'nullable|string|max:100',
@@ -104,8 +105,10 @@ class PurchaseController extends Controller
                         ],
                         [
                             'id'               => Str::uuid(),
+                            'supplier_id'      => $purchase->supplier_id,
                             'manufacture_date' => $itemData['manufacture_date'] ?? null,
                             'purchase_price'   => $itemData['purchase_price'] ?? null,
+                            'selling_price'    => $itemData['selling_price'] ?? null,
                             'mrp'              => $itemData['mrp'] ?? null,
                             'quantity'         => 0, // Will be incremented by InventoryService
                         ]

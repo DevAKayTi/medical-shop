@@ -24,7 +24,6 @@ return new class extends Migration
             $table->string('unit', 50)->nullable();
             $table->decimal('mrp', 10, 2);
             $table->decimal('purchase_price', 10, 2)->nullable();
-            $table->decimal('selling_price', 10, 2);
             $table->decimal('tax_rate', 5, 2)->default(0);
             $table->boolean('is_controlled_drug')->default(false);
             $table->boolean('prescription_required')->default(false);

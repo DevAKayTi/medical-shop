@@ -10,8 +10,36 @@ interface Props {
     onCancel: () => void;
 }
 
-const MEDICINE_TYPES = ["tablet", "capsule", "syrup", "injection", "cream", "drops", "other"];
-const UNITS = ["strips", "bottles", "vials", "pieces"];
+const MEDICINE_TYPES = [
+    { value: "tablet", label: "Tablet (ဆေးပြား)" },
+    { value: "capsule", label: "Capsule (ဆေးတောင့်)" },
+    { value: "syrup", label: "Syrup (အရည်ကြည်)" },
+    { value: "suspension", label: "Suspension (ဆေးရည် - အနှစ်)" },
+    { value: "injection", label: "Injection (ထိုးဆေး)" },
+    { value: "infusion", label: "Infusion/IV (ပုလင်းသွင်းဆေး/ပုလင်းချိတ်ဆေး)" },
+    { value: "cream", label: "Cream (လိမ်းဆေး - ခရင်မ်)" },
+    { value: "ointment", label: "Ointment (လိမ်းဆေးဆီ)" },
+    { value: "gel", label: "Gel (ဂျယ်လ်)" },
+    { value: "drops", label: "Drops (အစက်ချဆေး - မျက်စဉ်း/နားထဲထည့်ဆေး)" },
+    { value: "inhaler", label: "Inhaler (ရှူဆေး)" },
+    { value: "spray", label: "Spray (ဖြန်းဆေး)" },
+    { value: "powder", label: "Powder (ဆေးမှုန့်)" },
+    { value: "suppository", label: "Suppository (စအိုထည့်ဆေး)" },
+    { value: "other", label: "Other (အခြား)" }
+];
+
+const UNITS = [
+    { value: "piece", label: "Piece (အခု/ခု)" },
+    { value: "strip", label: "Strip (ဆေးကတ်)" },
+    { value: "box", label: "Box (ဆေးဖာ/ဆေးဗူး)" },
+    { value: "bottle", label: "Bottle (ပုလင်း)" },
+    { value: "vial", label: "Vial (ဆေးပုလင်းသေး)" },
+    { value: "ampoule", label: "Ampoule (ဆေးထိုးပြွန်အသေး)" },
+    { value: "tube", label: "Tube (ဆေးပြွန်)" },
+    { value: "sachet", label: "Sachet (အထုပ်ငယ်)" },
+    { value: "pack", label: "Pack (အထုပ်)" },
+    { value: "pair", label: "Pair (အစုံ)" }
+];
 
 export function ProductForm({ initialData, categories, onSubmit, onCancel }: Props) {
     const [form, setForm] = useState({
@@ -24,8 +52,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
         manufacturer: "",
         unit: "strips",
         mrp: "",
-        purchase_price: "",
-        selling_price: "",
         tax_rate: "0",
         is_controlled_drug: false,
         prescription_required: false,
@@ -46,8 +72,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                 manufacturer: initialData.manufacturer ?? "",
                 unit: initialData.unit ?? "strips",
                 mrp: String(initialData.mrp),
-                purchase_price: initialData.purchase_price != null ? String(initialData.purchase_price) : "",
-                selling_price: String(initialData.selling_price),
                 tax_rate: String(initialData.tax_rate ?? 0),
                 is_controlled_drug: initialData.is_controlled_drug,
                 prescription_required: initialData.prescription_required,
@@ -61,6 +85,7 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         setLoading(true);
         await onSubmit({
             name: form.name,
@@ -72,8 +97,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
             manufacturer: form.manufacturer || null,
             unit: form.unit || null,
             mrp: parseFloat(form.mrp) || 0,
-            purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
-            selling_price: parseFloat(form.selling_price) || 0,
             tax_rate: parseFloat(form.tax_rate) || 0,
             is_controlled_drug: form.is_controlled_drug,
             prescription_required: form.prescription_required,
@@ -119,14 +142,14 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                         <label className="text-sm font-medium">Medicine Type</label>
                         <select value={form.medicine_type} onChange={e => set("medicine_type", e.target.value)} className={selectCls}>
                             <option value="">— Select type —</option>
-                            {MEDICINE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                            {MEDICINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                     </div>
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Category</label>
                         <select value={form.category_id} onChange={e => set("category_id", e.target.value)} className={selectCls}>
                             <option value="">— No Category —</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {categories.filter(c => c.is_active || c.id === form.category_id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
                 </div>
@@ -141,21 +164,13 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                         <Input type="number" step="0.01" min="0" required value={form.mrp} onChange={e => set("mrp", e.target.value)} placeholder="0.00" />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-sm font-medium">Purchase Price</label>
-                        <Input type="number" step="0.01" min="0" value={form.purchase_price} onChange={e => set("purchase_price", e.target.value)} placeholder="0.00" />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Selling Price *</label>
-                        <Input type="number" step="0.01" min="0" required value={form.selling_price} onChange={e => set("selling_price", e.target.value)} placeholder="0.00" />
-                    </div>
-                    <div className="space-y-1">
                         <label className="text-sm font-medium">Tax Rate (%)</label>
                         <Input type="number" step="0.01" min="0" max="100" value={form.tax_rate} onChange={e => set("tax_rate", e.target.value)} placeholder="0" />
                     </div>
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Unit</label>
                         <select value={form.unit} onChange={e => set("unit", e.target.value)} className={selectCls}>
-                            {UNITS.map(u => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
+                            {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                         </select>
                     </div>
                 </div>

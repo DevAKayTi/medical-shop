@@ -28,12 +28,11 @@ class ProductController extends Controller
             'barcode'              => 'nullable|string|max:191',
             'sku'                  => 'nullable|string|max:100',
             'category_id'          => 'nullable|uuid|exists:categories,id',
-            'medicine_type'        => 'nullable|in:tablet,capsule,syrup,injection,cream,drops,other',
+            'medicine_type'        => 'nullable|in:tablet,capsule,syrup,suspension,injection,infusion,cream,ointment,gel,drops,inhaler,spray,powder,suppository,other',
             'manufacturer'         => 'nullable|string|max:191',
-            'unit'                 => 'nullable|in:strips,bottles,vials,pieces',
+            'unit'                 => 'nullable|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
             'mrp'                  => 'required|numeric|min:0',
             'purchase_price'       => 'nullable|numeric|min:0',
-            'selling_price'        => 'required|numeric|min:0',
             'tax_rate'             => 'nullable|numeric|min:0|max:100',
             'is_controlled_drug'   => 'boolean',
             'prescription_required'=> 'boolean',
@@ -59,12 +58,11 @@ class ProductController extends Controller
             'barcode'              => 'nullable|string|max:191',
             'sku'                  => 'nullable|string|max:100',
             'category_id'          => 'nullable|uuid|exists:categories,id',
-            'medicine_type'        => 'nullable|in:tablet,capsule,syrup,injection,cream,drops,other',
+            'medicine_type'        => 'nullable|in:tablet,capsule,syrup,suspension,injection,infusion,cream,ointment,gel,drops,inhaler,spray,powder,suppository,other',
             'manufacturer'         => 'nullable|string|max:191',
-            'unit'                 => 'nullable|in:strips,bottles,vials,pieces',
+            'unit'                 => 'nullable|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
             'mrp'                  => 'sometimes|numeric|min:0',
             'purchase_price'       => 'nullable|numeric|min:0',
-            'selling_price'        => 'sometimes|numeric|min:0',
             'tax_rate'             => 'nullable|numeric|min:0|max:100',
             'is_controlled_drug'   => 'boolean',
             'prescription_required'=> 'boolean',
@@ -86,7 +84,12 @@ class ProductController extends Controller
 
     public function batches(Product $product)
     {
-        return response()->json($product->batches()->orderBy('expiry_date')->get());
+        return response()->json(
+            $product->batches()
+                ->with(['supplier'])
+                ->orderBy('expiry_date')
+                ->get()
+        );
     }
 
     public function storeBatch(Request $request, Product $product)
@@ -94,10 +97,12 @@ class ProductController extends Controller
         $user = $request->user();
         $data = $request->validate([
             'batch_number'    => 'required|string|max:100',
+            'supplier_id'     => 'nullable|uuid|exists:suppliers,id',
             'manufacture_date'=> 'nullable|date',
             'expiry_date'     => 'required|date',
             'quantity'        => 'required|integer|min:0',
             'purchase_price'  => 'nullable|numeric|min:0',
+            'selling_price'   => 'required|numeric|min:0|gte:purchase_price',
             'mrp'             => 'nullable|numeric|min:0',
         ]);
 
@@ -105,23 +110,25 @@ class ProductController extends Controller
         $data['product_id'] = $product->id;
 
         $batch = ProductBatch::create($data);
-        return response()->json($batch, 201);
+        return response()->json($batch->load(['supplier']), 201);
     }
 
     public function updateBatch(Request $request, ProductBatch $batch)
     {
         $data = $request->validate([
             'batch_number'    => 'sometimes|string|max:100',
+            'supplier_id'     => 'nullable|uuid|exists:suppliers,id',
             'manufacture_date'=> 'nullable|date',
             'expiry_date'     => 'sometimes|date',
             'quantity'        => 'sometimes|integer|min:0',
             'purchase_price'  => 'nullable|numeric|min:0',
+            'selling_price'   => 'sometimes|numeric|min:0|gte:purchase_price',
             'mrp'             => 'nullable|numeric|min:0',
             'is_active'       => 'boolean',
         ]);
 
         $batch->update($data);
-        return response()->json($batch);
+        return response()->json($batch->load(['supplier']));
     }
 
     public function destroyBatch(ProductBatch $batch)

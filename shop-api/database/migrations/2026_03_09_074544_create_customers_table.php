@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('shop_id')->constrained('shops');
             $table->string('name', 191);
-            $table->string('phone', 30)->nullable();
+            $table->string('phone', 30);
             $table->string('email', 191)->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('gender', 20)->nullable();
@@ -25,6 +25,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
+            $table->unique(['shop_id', 'phone']);
+            $table->unique(['shop_id', 'email']);
             $table->index('shop_id');
             $table->index(['shop_id', 'phone']);
         });

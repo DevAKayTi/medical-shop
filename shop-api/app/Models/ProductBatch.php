@@ -13,11 +13,13 @@ class ProductBatch extends Model
     protected $fillable = [
         'shop_id',
         'product_id',
+        'supplier_id',
         'batch_number',
         'manufacture_date',
         'expiry_date',
         'quantity',
         'purchase_price',
+        'selling_price',
         'mrp',
         'is_active',
     ];
@@ -28,6 +30,7 @@ class ProductBatch extends Model
         'is_active'        => 'boolean',
         'quantity'         => 'integer',
         'purchase_price'   => 'decimal:2',
+        'selling_price'    => 'decimal:2',
         'mrp'              => 'decimal:2',
     ];
 
@@ -41,6 +44,11 @@ class ProductBatch extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     /**

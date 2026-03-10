@@ -21,7 +21,7 @@ class StockAdjustmentController extends Controller
     public function index()
     {
         return StockAdjustment::where('shop_id', Auth::user()->shop_id)
-            ->with(['product', 'batch.supplier'])
+            ->with(['product', 'batch.supplier', 'user'])
             ->latest()
             ->paginate(20);
     }

@@ -26,14 +26,26 @@ export function BatchForm({ productName, suppliers, initialData, onSubmit, onCan
         expiry_date: safeISO(initialData?.expiry_date),
         quantity: initialData?.quantity?.toString() ?? "",
         purchase_price: initialData?.purchase_price?.toString() ?? "",
+        selling_price: initialData?.selling_price?.toString() ?? "",
         mrp: initialData?.mrp?.toString() ?? "",
     });
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+
+        const pp = parseFloat(form.purchase_price);
+        const sp = parseFloat(form.selling_price);
+
+        if (!isNaN(pp) && !isNaN(sp) && sp < pp) {
+            setError("Selling price must be greater than or equal to purchase price.");
+            return;
+        }
+
         setLoading(true);
         await onSubmit({
             batch_number: form.batch_number,
@@ -42,15 +54,18 @@ export function BatchForm({ productName, suppliers, initialData, onSubmit, onCan
             expiry_date: form.expiry_date,
             quantity: parseInt(form.quantity) || 0,
             purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
+            selling_price: parseFloat(form.selling_price) || 0,
             mrp: form.mrp ? parseFloat(form.mrp) : null,
         });
         setLoading(false);
     };
 
+    const isEditing = !!initialData;
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
             <div>
-                <h3 className="text-base font-semibold">Add Batch</h3>
+                <h3 className="text-base font-semibold">{isEditing ? "Edit Batch" : "Add Batch"}</h3>
                 <p className="text-xs text-slate-500 mt-0.5">For: <span className="font-medium">{productName}</span></p>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -88,13 +103,18 @@ export function BatchForm({ productName, suppliers, initialData, onSubmit, onCan
                     <Input type="number" step="0.01" min="0" value={form.purchase_price} onChange={e => set("purchase_price", e.target.value)} placeholder="0.00" />
                 </div>
                 <div className="space-y-1">
+                    <label className="text-sm font-medium">Selling Price *</label>
+                    <Input type="number" step="0.01" min="0" required value={form.selling_price} onChange={e => set("selling_price", e.target.value)} placeholder="0.00" />
+                </div>
+                <div className="space-y-1">
                     <label className="text-sm font-medium">MRP</label>
                     <Input type="number" step="0.01" min="0" value={form.mrp} onChange={e => set("mrp", e.target.value)} placeholder="0.00" />
                 </div>
             </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Add Batch"}</Button>
+                <Button type="submit" disabled={loading}>{loading ? "Saving..." : (isEditing ? "Update Batch" : "Add Batch")}</Button>
             </div>
         </form>
     );

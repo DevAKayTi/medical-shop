@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { ApiSupplier, ApiProduct, supplierApi, productApi } from "@/lib/inventory";
-import { ApiPurchase, purchaseApi } from "@/lib/purchases";
+import { ApiPurchase, purchaseApi, ApiPurchaseReturn, purchaseReturnApi } from "@/lib/purchases";
+import { PurchaseReturnForm } from "@/components/PurchaseReturnForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { NewPurchaseForm } from "@/components/NewPurchaseForm";
 import {
     ShoppingCart, Plus, Search, Eye, CheckCircle, XCircle,
-    Clock, ChevronLeft, RefreshCw, Truck, Package
+    Clock, ChevronLeft, RefreshCw, Truck, Package, Undo2, List
 } from "lucide-react";
 
-type ViewMode = "list" | "new" | "detail";
+type ViewMode = "list" | "new" | "detail" | "return" | "return-list";
 
 const StatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, string> = {
@@ -37,6 +38,7 @@ export default function PurchasesPage() {
     const [products, setProducts] = useState<ApiProduct[]>([]);
     const [selectedPurchase, setSelectedPurchase] = useState<ApiPurchase | null>(null);
     const [loading, setLoading] = useState(true);
+    const [returns, setReturns] = useState<ApiPurchaseReturn[]>([]);
     const [search, setSearch] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [saving, setSaving] = useState(false);
@@ -54,14 +56,16 @@ export default function PurchasesPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [pResp, sup, prod] = await Promise.all([
+            const [pResp, sup, prod, retResp] = await Promise.all([
                 purchaseApi.list(),
                 supplierApi.list(),
                 productApi.list(),
+                purchaseReturnApi.list(),
             ]);
             setPurchases(pResp.data || []);
             setSuppliers(sup);
             setProducts(prod);
+            setReturns(retResp.data || []);
         } catch (e) {
             console.error("Failed to load purchases", e);
         } finally {
@@ -109,6 +113,32 @@ export default function PurchasesPage() {
         }
     };
 
+    const handleCreateReturn = async (data: any) => {
+        try {
+            await purchaseReturnApi.create(data);
+            showToast("Purchase return created successfully! 📦");
+            await loadData();
+            setView("list");
+        } catch (err) {
+            console.error(err);
+            throw err;
+        }
+    };
+
+    const handleCompleteReturn = async (id: string) => {
+        if (!confirm("Complete this return? This will deduct stock.")) return;
+        setSaving(true);
+        try {
+            await purchaseReturnApi.complete(id);
+            showToast("Return completed and stock adjusted! ✅");
+            await loadData();
+        } catch {
+            showToast("Failed to complete return.", "error");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const filteredPurchases = purchases.filter(p => {
         const s = search.toLowerCase();
         const matchesSearch = p.purchase_number.toLowerCase().includes(s) ||
@@ -122,6 +152,7 @@ export default function PurchasesPage() {
         pending: purchases.filter(p => p.status === 'pending').length,
         received: purchases.filter(p => p.status === 'received').length,
         totalValue: purchases.filter(p => p.status === 'received').reduce((s, p) => s + Number(p.total), 0),
+        pendingReturns: returns.filter(r => r.status === 'pending').length,
     };
 
     // ─── Views ──────────────────────────────────────────────────────────
@@ -177,6 +208,17 @@ export default function PurchasesPage() {
                             </Button>
                             <Button variant="outline" onClick={() => handleDelete(p.id)} className="text-red-500 border-red-300 hover:bg-red-50">
                                 <XCircle className="h-4 w-4 mr-2" /> Cancel Order
+                            </Button>
+                        </div>
+                    )}
+                    {p.status === 'received' && (
+                        <div className="flex gap-2">
+                            <Button onClick={() => {
+                                console.log("Initiating return for", p);
+                                setSelectedPurchase(p);
+                                setView("return");
+                            }} variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50">
+                                <Undo2 className="h-4 w-4 mr-2" /> Return Items
                             </Button>
                         </div>
                     )}
@@ -241,6 +283,82 @@ export default function PurchasesPage() {
         );
     }
 
+    if (view === "return" && selectedPurchase) {
+        return (
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => setView("detail")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+                        <ChevronLeft className="h-4 w-4" /> Back to Detail
+                    </button>
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Return Items</h1>
+                <PurchaseReturnForm
+                    purchase={selectedPurchase}
+                    onSubmit={handleCreateReturn}
+                    onCancel={() => setView("detail")}
+                />
+            </div>
+        );
+    }
+
+    if (view === "return-list") {
+        return (
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between">
+                    <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                        <ChevronLeft className="h-4 w-4" /> Back to Purchases
+                    </button>
+                    <h1 className="text-2xl font-bold">Purchase Returns</h1>
+                </div>
+
+                <Card>
+                    <CardContent className="p-0">
+                        {returns.length === 0 ? (
+                            <div className="py-16 text-center text-slate-400">No returns found.</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                        <tr>
+                                            <th className="px-5 py-3">Return #</th>
+                                            <th className="px-5 py-3">Purchase #</th>
+                                            <th className="px-5 py-3">Supplier</th>
+                                            <th className="px-5 py-3">Status</th>
+                                            <th className="px-5 py-3 text-right">Total</th>
+                                            <th className="px-5 py-3 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                        {returns.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                                                <td className="px-5 py-3.5 font-mono text-xs font-medium text-amber-600">{r.return_number}</td>
+                                                <td className="px-5 py-3.5 text-xs text-slate-500">{r.purchase?.purchase_number || "—"}</td>
+                                                <td className="px-5 py-3.5 font-medium">{r.supplier?.name || "—"}</td>
+                                                <td className="px-5 py-3.5">
+                                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                        {r.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right font-semibold">{Number(r.total).toFixed(2)}</td>
+                                                <td className="px-5 py-3.5 text-center">
+                                                    {r.status === 'pending' && (
+                                                        <Button variant="ghost" size="sm" onClick={() => handleCompleteReturn(r.id)} disabled={saving} className="text-green-600">
+                                                            Complete
+                                                        </Button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     // ─── List view ────────────────────────────────────────────────────
 
     return (
@@ -258,13 +376,18 @@ export default function PurchasesPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Purchases</h1>
                     <p className="text-slate-500 dark:text-slate-400">Manage purchase orders and supplier deliveries.</p>
                 </div>
-                <Button onClick={() => setView("new")} className="flex-shrink-0">
-                    <Plus className="mr-2 h-4 w-4" /> New Purchase Order
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setView("return-list")} className="flex-shrink-0">
+                        <List className="mr-2 h-4 w-4" /> View Returns
+                    </Button>
+                    <Button onClick={() => setView("new")} className="flex-shrink-0">
+                        <Plus className="mr-2 h-4 w-4" /> New Purchase Order
+                    </Button>
+                </div>
             </div>
 
             {/* Stats cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card>
                     <CardContent className="pt-5">
                         <div className="flex items-center gap-3">
@@ -300,6 +423,19 @@ export default function PurchasesPage() {
                             <div>
                                 <p className="text-xs text-slate-500">Received</p>
                                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.received}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-5">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+                                <Undo2 className="h-5 w-5 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500">Pending Returns</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pendingReturns}</p>
                             </div>
                         </div>
                     </CardContent>
