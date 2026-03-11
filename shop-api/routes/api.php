@@ -26,6 +26,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:api')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
     Route::get('/dashboard/revenue-details', [DashboardController::class, 'revenueDetails']);
+    Route::get('/dashboard/reports', [DashboardController::class, 'reports']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 

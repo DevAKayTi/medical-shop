@@ -39,6 +39,62 @@ export interface MonthlyRevenueDetails {
     }[];
 }
 
+export interface DateRangeSummary {
+    gross_sales: number;
+    returns: number;
+    net_revenue: number;
+    transaction_count: number;
+    avg_order_value: number;
+    daily_breakdown: {
+        date: string;
+        gross_sales: number;
+        returns: number;
+        net_revenue: number;
+        transactions: number;
+    }[];
+}
+
+export interface TopProduct {
+    id: string;
+    name: string;
+    total_qty_sold: number;
+    total_revenue: number;
+    order_count: number;
+}
+
+export interface PaymentMethodStat {
+    method: string;
+    total_amount: number;
+    transaction_count: number;
+}
+
+export interface CashierStat {
+    id: string;
+    name: string;
+    sales_count: number;
+    total_revenue: number;
+    avg_sale_value: number;
+}
+
+export interface ProductProfitStat {
+    id: string;
+    name: string;
+    total_qty_sold: number;
+    total_revenue: number;
+    total_cost: number;
+    gross_profit: number;
+    margin_pct: number;
+    order_count: number;
+    has_cost_data: boolean;
+}
+
+export interface ProductProfitSummary {
+    total_revenue: number;
+    total_cost: number;
+    total_profit: number;
+    overall_margin: number;
+}
+
 export const dashboardApi = {
     getStats: async (): Promise<DashboardStats> => {
         const res = await api.get<DashboardStats>("/dashboard/stats");
@@ -50,6 +106,15 @@ export const dashboardApi = {
             query.append(view === 'daily' ? 'date' : 'month', param);
         }
         const res = await api.get(`/dashboard/revenue-details?${query.toString()}`);
+        return res.data;
+    },
+    getReports: async (params: {
+        type: 'date_range_summary' | 'top_products' | 'payment_methods' | 'cashier_performance' | 'product_profit';
+        date_from?: string;
+        date_to?: string;
+    }): Promise<any> => {
+        const query = new URLSearchParams(params as any);
+        const res = await api.get(`/dashboard/reports?${query.toString()}`);
         return res.data;
     }
 };
