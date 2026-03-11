@@ -39,6 +39,10 @@ class Product extends Model
         'is_active'             => 'boolean',
     ];
 
+    protected $appends = [
+        'total_stock'
+    ];
+
     // ─── Relationships ────────────────────────────────────────────────
 
     public function shop()

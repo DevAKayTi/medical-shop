@@ -1,3 +1,4 @@
+import { formatCurrency } from '@/lib/currency';
 import { useState, useEffect } from "react";
 import { shiftSessionApi, ApiShiftSession } from "@/lib/registers";
 import { Card } from "@/components/ui/Card";
@@ -130,22 +131,22 @@ export default function ShiftsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 text-right text-slate-600 dark:text-slate-300">
-                                                {opening.toFixed(2)}
+                                                {formatCurrency(opening)}
                                             </td>
                                             <td className="px-5 py-4 text-right">
-                                                <div className="text-emerald-600 dark:text-emerald-400">{sales > 0 ? `+${sales.toFixed(2)}` : "0.00"}</div>
-                                                {refunds > 0 && <div className="text-xs text-red-500">-{refunds.toFixed(2)}</div>}
+                                                <div className="text-emerald-600 dark:text-emerald-400">{sales > 0 ? `+${formatCurrency(sales)}` : formatCurrency(0)}</div>
+                                                {refunds > 0 && <div className="text-xs text-red-500">-{formatCurrency(refunds)}</div>}
                                             </td>
                                             <td className="px-5 py-4 text-right border-l dark:border-slate-800 font-semibold text-slate-900 dark:text-slate-100 bg-slate-50/50 dark:bg-slate-900/20">
-                                                {expected.toFixed(2)}
+                                                {formatCurrency(expected)}
                                             </td>
                                             <td className="px-5 py-4 text-right font-medium text-slate-900 dark:text-slate-100">
-                                                {actual !== null ? actual.toFixed(2) : "-"}
+                                                {actual !== null ? formatCurrency(actual) : "-"}
                                             </td>
                                             <td className="px-5 py-4 text-right">
                                                 {diff !== null ? (
                                                     <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${diff === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : diff > 0 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                        {diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2)}
+                                                        {diff > 0 ? `+${formatCurrency(diff)}` : formatCurrency(diff)}
                                                     </span>
                                                 ) : "-"}
                                             </td>

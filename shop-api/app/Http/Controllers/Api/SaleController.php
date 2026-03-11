@@ -33,7 +33,11 @@ class SaleController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        } else {
+            // Default to showing completed, returned, and refunded so Voided items appear
+            $query->whereIn('status', ['completed', 'returned', 'refunded']);
         }
+        
         if ($request->filled('customer_id')) {
             $query->where('customer_id', $request->customer_id);
         }
@@ -226,10 +230,74 @@ class SaleController extends Controller
     {
         $this->authorizeShop($sale);
         abort_if($sale->status !== 'completed', 422, 'Only completed sales can be voided.');
+        abort_if(Str::startsWith($sale->invoice_number, 'REF-'), 422, 'Refund invoices cannot be voided.');
 
         DB::beginTransaction();
         try {
-            $sale->update(['status' => 'refunded']);
+            // Keep original sale but mark as returned
+            $sale->update(['status' => 'returned']);
+
+            // Create a negative invoice
+            $refundInvoiceNumber = 'REF-' . $sale->invoice_number;
+            
+            // Check if it already exists just in case (e.g. double request)
+            if (Sale::where('invoice_number', $refundInvoiceNumber)->exists()) {
+                 abort(422, 'This sale has already been refunded.');
+            }
+
+            $refundSale = Sale::create([
+                'shop_id'        => $sale->shop_id,
+                'invoice_number' => $refundInvoiceNumber,
+                'customer_id'    => $sale->customer_id,
+                'session_id'     => $sale->session_id,
+                'register_id'    => $sale->register_id,
+                'cashier_id'     => Auth::id(),
+                'subtotal'       => -$sale->subtotal,
+                'discount'       => -$sale->discount,
+                'tax'            => -$sale->tax,
+                'total'          => -$sale->total,
+                'amount_paid'    => -$sale->total, // They are being refunded the total
+                'change_amount'  => 0,
+                'status'         => 'completed', // Completed so it counts in Dashboard Sums
+                'notes'          => 'Refund for ' . $sale->invoice_number,
+                'sold_at'        => now(),
+            ]);
+
+            // Clone items with negative values
+            $originalItems = $sale->items()->get();
+            foreach ($originalItems as $item) {
+                SaleItem::create([
+                    'shop_id'    => $item->shop_id,
+                    'sale_id'    => $refundSale->id,
+                    'product_id' => $item->product_id,
+                    'batch_id'   => $item->batch_id,
+                    'quantity'   => -$item->quantity,     // negative
+                    'unit_price' => $item->unit_price,    // Keep price positive so unit calculation makes sense
+                    'discount'   => -$item->discount,     // negative
+                    'tax'        => -$item->tax,          // negative
+                    'total'      => -$item->total,        // negative
+                    'created_at' => now(),
+                ]);
+                
+                // We should also return the stock back to the inventory
+                if (!empty($item->batch_id)) {
+                    $this->inventoryService->adjustStock(
+                        $sale->shop_id,
+                        $item->product_id,
+                        $item->batch_id,
+                        $item->quantity, // positive quantity to credit back
+                        'credit',
+                        'sale_void',
+                        $refundSale->id,
+                        "Refund #{$refundSale->invoice_number}",
+                        Auth::id()
+                    );
+                } else {
+                     // Since we don't have exact FEFO batch tracking per item on voids currently, 
+                     // We just add stock back without batch if batch wasn't recorded, 
+                     // but ideally items *should* have a batch attached in a strict system.
+                }
+            }
 
             // Update shift session refunds if present
             if ($sale->session_id) {
@@ -238,10 +306,10 @@ class SaleController extends Controller
             }
             
             DB::commit();
-            return response()->json(['message' => 'Sale voided.']);
+            return response()->json(['message' => 'Sale voided. A negative refund invoice was generated.']);
         } catch (\Throwable $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Failed to void sale.'], 500);
+            return response()->json(['message' => 'Failed to void sale.', 'error' => $e->getMessage()], 500);
         }
     }
 

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { User, ShopInfo } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
-import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock, MonitorStop, TrendingUp } from "lucide-react";
 
 interface SidebarProps {
     user: User;
@@ -19,8 +19,10 @@ export function Sidebar({ user, shop }: SidebarProps) {
     const navItems = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["Admin", "Manager", "Cashier"] },
         { name: "Inventory", href: "/dashboard/inventory", icon: PackageSearch, roles: ["Admin", "Manager"] },
-        { name: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart, roles: ["Admin", "Manager"] },
-        { name: "Sales & Billing", href: "/dashboard/sales", icon: Receipt, roles: ["Admin", "Manager", "Cashier"] },
+        { name: "Purchases & Returns", href: "/dashboard/purchases", icon: ShoppingCart, roles: ["Admin", "Manager"] },
+        { name: "Point of Sale (POS)", href: "/dashboard/pos", icon: MonitorStop, roles: ["Admin", "Manager", "Cashier"] },
+        { name: "Sales History", href: "/dashboard/sales", icon: Receipt, roles: ["Admin", "Manager", "Cashier"] },
+        { name: "Revenue Details", href: "/dashboard/revenue", icon: TrendingUp, roles: ["Admin", "Manager"] },
         { name: "Customers", href: "/dashboard/customers", icon: Users, roles: ["Admin", "Manager", "Cashier"] },
         { name: "Cash Registers", href: "/dashboard/registers", icon: Store, roles: ["Admin", "Manager"] },
         { name: "Shift History", href: "/dashboard/shifts", icon: Clock, roles: ["Admin", "Manager"] },

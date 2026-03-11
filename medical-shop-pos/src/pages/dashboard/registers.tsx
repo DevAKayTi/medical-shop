@@ -4,6 +4,17 @@ import { Plus, Edit, Trash2, PowerOff, Power } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/components/ui/ToastProvider";
+
+const registerSchema = z.object({
+    name: z.string().min(1, "Register name is required."),
+    is_active: z.boolean().default(true),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 // ─── Form Component ────────────────────────────────────────────────────────
 function RegisterForm({
@@ -15,27 +26,27 @@ function RegisterForm({
     onSave: (data: CreateCashRegisterPayload) => Promise<void>;
     onCancel: () => void;
 }) {
-    const [name, setName] = useState(initial?.name ?? "");
-    const [isActive, setIsActive] = useState(initial?.is_active ?? true);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState("");
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+        setError,
+    } = useForm<RegisterFormValues>({
+        resolver: zodResolver(registerSchema) as any,
+        defaultValues: {
+            name: initial?.name ?? "",
+            is_active: initial?.is_active ?? true,
+        },
+    });
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
-
-        if (!name.trim()) {
-            setError("Register name is required.");
-            return;
-        }
-
-        setSaving(true);
+    const onSubmit = async (data: RegisterFormValues) => {
         try {
-            await onSave({ name, is_active: isActive });
+            await onSave(data);
         } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to save register.");
-        } finally {
-            setSaving(false);
+            setError("root", {
+                type: "manual",
+                message: err.response?.data?.message || "Failed to save register.",
+            });
         }
     };
 
@@ -45,24 +56,22 @@ function RegisterForm({
                 <CardTitle>{initial ? "Edit Cash Register" : "Add Cash Register"}</CardTitle>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div>
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Name</label>
                         <Input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            {...register("name")}
                             placeholder="e.g., Main Register 1"
-                            className="mt-1 max-w-sm"
-                            required
+                            className={`mt-1 max-w-sm ${errors.name ? 'border-red-500' : ''}`}
                         />
+                        {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                     </div>
 
                     <div className="flex items-center gap-2">
                         <input
                             type="checkbox"
                             id="is_active"
-                            checked={isActive}
-                            onChange={(e) => setIsActive(e.target.checked)}
+                            {...register("is_active")}
                             className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-900"
                         />
                         <label htmlFor="is_active" className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -70,10 +79,10 @@ function RegisterForm({
                         </label>
                     </div>
 
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                    {errors.root && <p className="text-red-500 text-sm mt-1">{errors.root.message}</p>}
 
                     <div className="flex gap-3 pt-2">
-                        <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save Register"}</Button>
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving…" : "Save Register"}</Button>
                         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                     </div>
                 </form>
@@ -88,16 +97,11 @@ export default function RegistersPage() {
     const [loading, setLoading] = useState(true);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingRegister, setEditingRegister] = useState<ApiCashRegister | undefined>(undefined);
-    const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         loadRegisters();
     }, []);
-
-    const showToast = (msg: string, type: "success" | "error" = "success") => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
-    };
 
     const loadRegisters = async () => {
         setLoading(true);
@@ -105,7 +109,7 @@ export default function RegistersPage() {
             const data = await registerApi.list();
             setRegisters(data);
         } catch {
-            showToast("Failed to load cash registers.", "error");
+            toast.error("Failed to load cash registers.");
         } finally {
             setLoading(false);
         }
@@ -114,10 +118,10 @@ export default function RegistersPage() {
     const handleSave = async (data: CreateCashRegisterPayload) => {
         if (editingRegister) {
             await registerApi.update(editingRegister.id, data);
-            showToast("Register updated successfully.");
+            toast.success("Register updated successfully.");
         } else {
             await registerApi.create(data);
-            showToast("Register added successfully.");
+            toast.success("Register added successfully.");
         }
         setIsFormOpen(false);
         setEditingRegister(undefined);
@@ -128,20 +132,20 @@ export default function RegistersPage() {
         if (!confirm("Delete this cash register? This cannot be undone.")) return;
         try {
             await registerApi.delete(id);
-            showToast("Register deleted.");
+            toast.success("Register deleted.");
             await loadRegisters();
         } catch (err: any) {
-            showToast(err.response?.data?.message || "Failed to delete register.", "error");
+            toast.error(err.response?.data?.message || "Failed to delete register.");
         }
     };
 
     const toggleStatus = async (register: ApiCashRegister) => {
         try {
             await registerApi.update(register.id, { name: register.name, is_active: !register.is_active });
-            showToast(`Register ${!register.is_active ? 'activated' : 'deactivated'}.`);
+            toast.success(`Register ${!register.is_active ? 'activated' : 'deactivated'}.`);
             await loadRegisters();
         } catch (err: any) {
-            showToast("Failed to update status.", "error");
+            toast.error("Failed to update status.");
         }
     };
 
@@ -158,12 +162,6 @@ export default function RegistersPage() {
                     </Button>
                 )}
             </div>
-
-            {toast && (
-                <div className={`p-4 rounded-md border ${toast.type === "success" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800" : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:border-red-800"}`}>
-                    {toast.msg}
-                </div>
-            )}
 
             {isFormOpen && (
                 <RegisterForm

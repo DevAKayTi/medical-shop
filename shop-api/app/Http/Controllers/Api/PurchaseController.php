@@ -68,7 +68,7 @@ class PurchaseController extends Controller
             'items.*.total'         => 'required|numeric|min:0',
             'items.*.batch_number'  => 'nullable|string|max:100',
             'items.*.manufacture_date' => 'nullable|date',
-            'items.*.expiry_date'   => 'nullable|date',
+            'items.*.expiry_date'   => 'required_without:items.*.batch_id|nullable|date',
         ]);
 
         $shopId = Auth::user()->shop_id;
@@ -94,13 +94,18 @@ class PurchaseController extends Controller
             foreach ($validated['items'] as $itemData) {
                 $batchId = $itemData['batch_id'] ?? null;
 
-                // Resolve or create batch if details are provided
-                if (!$batchId && !empty($itemData['batch_number'])) {
+                // Resolve or create batch when no existing batch is selected
+                if (!$batchId) {
+                    // Auto-generate batch number if not provided
+                    $batchNumber = !empty($itemData['batch_number'])
+                        ? $itemData['batch_number']
+                        : 'BN-' . now()->format('Ymd') . '-' . strtoupper(Str::random(4));
+
                     $batch = ProductBatch::firstOrCreate(
                         [
                             'shop_id'      => $shopId,
                             'product_id'   => $itemData['product_id'],
-                            'batch_number' => $itemData['batch_number'],
+                            'batch_number' => $batchNumber,
                             'expiry_date'  => $itemData['expiry_date'],
                         ],
                         [

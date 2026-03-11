@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatCurrency } from "@/lib/currency";
 import { Sale, Product, storageLib } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { SalesReport } from "@/components/SalesReport";
@@ -65,7 +66,7 @@ export default function ReportsPage() {
                         <TrendingUp className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600">${totalRevenue.toFixed(2)}</div>
+                        <div className="text-2xl font-bold text-emerald-600">{formatCurrency(totalRevenue)}</div>
                         <p className="text-xs text-slate-500 mt-1">Lifetime generated revenue</p>
                     </CardContent>
                 </Card>
@@ -85,7 +86,7 @@ export default function ReportsPage() {
                         <TrendingUp className="h-4 w-4 text-slate-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">${totalTax.toFixed(2)}</div>
+                        <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">{formatCurrency(totalTax)}</div>
                         <p className="text-xs text-slate-500 mt-1">Lifetime tax collected</p>
                     </CardContent>
                 </Card>
@@ -131,7 +132,7 @@ export default function ReportsPage() {
                                             <p className="text-xs text-slate-500">{p.quantity} units sold</p>
                                         </div>
                                         <div className="font-medium text-sm">
-                                            ${p.revenue.toFixed(2)}
+                                            {formatCurrency(p.revenue)}
                                         </div>
                                     </div>
                                 ))}

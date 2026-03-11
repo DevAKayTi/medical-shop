@@ -1,9 +1,43 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiPurchase } from "@/lib/purchases";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/ToastProvider";
+
+// ─── Zod Schema ───────────────────────────────────────────────────────────────
+
+const returnLineSchema = z.object({
+    purchase_item_id: z.string(),
+    product_id: z.string(),
+    product_name: z.string(),
+    batch_id: z.string().nullable().optional(),
+    batch_number: z.string().nullable().optional(),
+    max_quantity: z.number(),
+    quantity: z.coerce.number()
+        .min(0, "Quantity cannot be negative"),
+    price: z.coerce.number(),
+    total: z.number(),
+}).refine(data => data.quantity <= data.max_quantity, {
+    message: "Cannot return more than purchased",
+    path: ["quantity"],
+});
+
+const schema = z.object({
+    reason: z.string().optional(),
+    status: z.enum(["pending", "completed"]),
+    items: z.array(returnLineSchema),
+}).refine(data => data.items.some(item => item.quantity > 0), {
+    message: "Please specify at least one item to return.",
+    path: ["items"],
+});
+
+type FormValues = z.infer<typeof schema>;
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
     purchase: ApiPurchase;
@@ -11,73 +45,74 @@ interface Props {
     onCancel: () => void;
 }
 
-interface ReturnLine {
-    purchase_item_id: string;
-    product_id: string;
-    product_name: string;
-    batch_id?: string | null;
-    batch_number?: string | null;
-    max_quantity: number;
-    quantity: number;
-    price: number;
-    total: number;
+// ─── Helper component: field error message ──────────────────────────────────
+
+function FieldError({ message }: { message?: string }) {
+    if (!message) return null;
+    return <p className="mt-1 text-xs text-red-500">{message}</p>;
 }
 
-export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
-    console.log("PurchaseReturnForm render", { purchase });
-    const [reason, setReason] = useState("");
-    const [status, setStatus] = useState<'pending' | 'completed'>('completed');
-    const items = purchase?.items || [];
-    const [lines, setLines] = useState<ReturnLine[]>(
-        items.map(item => ({
-            purchase_item_id: item.id!,
-            product_id: item.product_id,
-            product_name: item.product?.name || "Unknown Product",
-            batch_id: item.batch_id,
-            batch_number: item.batch?.batch_number || item.batch_number,
-            max_quantity: Number(item.quantity || 0),
-            quantity: 0,
-            price: Number(item.purchase_price || 0),
-            total: 0,
-        }))
-    );
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+// ─── Form ─────────────────────────────────────────────────────────────────────
 
-    const updateLine = (idx: number, qty: number) => {
-        setLines(prev => prev.map((l, i) => {
-            if (i !== idx) return l;
-            const safeQty = Math.max(0, Math.min(l.max_quantity, qty));
-            return {
-                ...l,
-                quantity: safeQty,
-                total: safeQty * l.price
-            };
-        }));
+export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
+    const toast = useToast();
+
+    const items = purchase?.items || [];
+    const defaultLines = items.map(item => ({
+        purchase_item_id: item.id!,
+        product_id: item.product_id,
+        product_name: item.product?.name || "Unknown Product",
+        batch_id: item.batch_id,
+        batch_number: item.batch?.batch_number || item.batch_number,
+        max_quantity: Number(item.quantity || 0),
+        quantity: 0,
+        price: Number(item.purchase_price || 0),
+        total: 0,
+    }));
+
+    const {
+        register,
+        control,
+        handleSubmit,
+        watch,
+        setValue,
+        formState: { errors, isSubmitting },
+    } = useForm<FormValues>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            reason: "",
+            status: "completed",
+            items: defaultLines,
+        },
+    });
+
+    const { fields } = useFieldArray({ control, name: "items" });
+    const watchedItems = watch("items");
+
+    // Dynamic calculations
+    const totalReturnAmount = (watchedItems || []).reduce((sum, l) => sum + (Number(l.total) || 0), 0);
+    const hasItemsToReturn = (watchedItems || []).some(l => l.quantity > 0);
+
+    const updateLineQuantity = (idx: number, rawValue: string) => {
+        const val = parseInt(rawValue, 10) || 0;
+        const line = watchedItems[idx];
+        const safeQty = Math.max(0, Math.min(line.max_quantity, val));
+        setValue(`items.${idx}.quantity`, safeQty, { shouldValidate: true });
+        setValue(`items.${idx}.total`, safeQty * Number(line.price));
     };
 
-    const totalReturnAmount = lines.reduce((sum, l) => sum + l.total, 0);
-    const hasItemsToReturn = lines.some(l => l.quantity > 0);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!hasItemsToReturn) {
-            setError("Please specify at least one item to return.");
-            return;
-        }
-
-        setSaving(true);
-        setError(null);
+    const processSubmit = async (values: FormValues) => {
         try {
             const returnNumber = `PR-${new Date().getTime().toString().slice(-6)}`;
-            await onSubmit({
+
+            const payload = {
                 purchase_id: purchase.id,
                 supplier_id: purchase.supplier_id,
                 return_number: returnNumber,
                 total: totalReturnAmount,
-                reason,
-                status,
-                items: lines.filter(l => l.quantity > 0).map(l => ({
+                reason: values.reason || "",
+                status: values.status,
+                items: values.items.filter(l => l.quantity > 0).map(l => ({
                     purchase_item_id: l.purchase_item_id,
                     product_id: l.product_id,
                     batch_id: l.batch_id,
@@ -85,16 +120,24 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                     price: l.price,
                     total: l.total,
                 })),
-            });
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to create purchase return.");
-        } finally {
-            setSaving(false);
+            };
+
+            await onSubmit(payload);
+            toast.success("Purchase return processed successfully.");
+        } catch (error: any) {
+            console.error("Failed to process purchase return:", error);
+            const msg = error.response?.data?.message || "Failed to process purchase return. Please try again.";
+            toast.error(msg);
         }
     };
 
+    // Helper for nested item errors
+    const itemErrors = (errors.items as any) || [];
+    const getItemError = (idx: number, field: string): string | undefined => itemErrors?.[idx]?.[field]?.message;
+    const itemsGlobalError = !Array.isArray(errors.items) ? (errors.items as any)?.message : undefined;
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+        <form onSubmit={handleSubmit(processSubmit)} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300" noValidate>
             <Card>
                 <CardHeader>
                     <CardTitle className="text-xl">Return Items from {purchase.purchase_number}</CardTitle>
@@ -103,21 +146,25 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Return Reason</label>
                         <Input
-                            value={reason}
-                            onChange={e => setReason(e.target.value)}
+                            {...register("reason")}
                             placeholder="e.g. Damaged items, Wrong delivery…"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Return Status</label>
-                        <select
-                            value={status}
-                            onChange={e => setStatus(e.target.value as 'pending' | 'completed')}
-                            className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="completed">Completed (Deduct stock now)</option>
-                            <option value="pending">Pending (Review later)</option>
-                        </select>
+                        <Controller
+                            control={control}
+                            name="status"
+                            render={({ field }) => (
+                                <select
+                                    {...field}
+                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="completed">Completed (Deduct stock now)</option>
+                                    <option value="pending">Pending (Review later)</option>
+                                </select>
+                            )}
+                        />
                     </div>
                 </CardContent>
             </Card>
@@ -139,39 +186,66 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                                {lines.map((line, idx) => (
-                                    <tr key={idx} className={line.quantity > 0 ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}>
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-900 dark:text-slate-100">{line.product_name}</div>
-                                            {line.batch_number && <div className="text-xs text-slate-500 font-mono mt-0.5">Batch: {line.batch_number}</div>}
-                                        </td>
-                                        <td className="px-4 py-3 text-right text-slate-500">{line.max_quantity}</td>
-                                        <td className="px-4 py-3 text-right w-32">
-                                            <Input
-                                                type="number"
-                                                min={0}
-                                                max={line.max_quantity}
-                                                value={line.quantity}
-                                                onChange={e => updateLine(idx, parseInt(e.target.value) || 0)}
-                                                className="text-right h-8"
-                                            />
-                                        </td>
-                                        <td className="px-4 py-3 text-right text-slate-500">{Number(line.price).toFixed(2)}</td>
-                                        <td className="px-4 py-3 text-right font-medium">
-                                            {line.total > 0 ? line.total.toFixed(2) : "—"}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {fields.map((field, idx) => {
+                                    const qty = watchedItems[idx]?.quantity || 0;
+                                    const isReturning = qty > 0;
+
+                                    return (
+                                        <tr key={field.id} className={isReturning ? "bg-blue-50/50 dark:bg-blue-900/10" : ""}>
+                                            <td className="px-4 py-3">
+                                                <div className="font-medium text-slate-900 dark:text-slate-100">
+                                                    {watchedItems[idx]?.product_name}
+                                                </div>
+                                                {watchedItems[idx]?.batch_number && (
+                                                    <div className="text-xs text-slate-500 font-mono mt-0.5">
+                                                        Batch: {watchedItems[idx].batch_number}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-slate-500">
+                                                {watchedItems[idx]?.max_quantity}
+                                            </td>
+                                            <td className="px-4 py-3 text-right w-32 align-top">
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={watchedItems[idx]?.max_quantity}
+                                                    value={qty}
+                                                    onChange={e => updateLineQuantity(idx, e.target.value)}
+                                                    className={`text-right h-8 ${getItemError(idx, "quantity") ? "border-red-500" : ""}`}
+                                                />
+                                                <FieldError message={getItemError(idx, "quantity")} />
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-slate-500">
+                                                {Number(watchedItems[idx]?.price || 0).toFixed(2)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-medium">
+                                                {watchedItems[idx]?.total > 0
+                                                    ? watchedItems[idx].total.toFixed(2)
+                                                    : "—"}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
+                    {itemsGlobalError && (
+                        <div className="p-4 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10">
+                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                                {itemsGlobalError}
+                            </p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                 <div className="text-sm text-slate-500">
                     {hasItemsToReturn ? (
-                        <span className="text-blue-600 font-medium italic">You are returning {lines.filter(l => l.quantity > 0).length} different items.</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-medium italic">
+                            You are returning {(watchedItems || []).filter(l => l.quantity > 0).length} different items.
+                        </span>
                     ) : (
                         "Set return quantities above to see total."
                     )}
@@ -184,17 +258,12 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                 </div>
             </div>
 
-            {error && (
-                <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {error}
-                </div>
-            )}
-
             <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
-                <Button type="submit" disabled={saving || !hasItemsToReturn}>
-                    {saving ? "Processing…" : "Submit Purchase Return"}
+                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+                    Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting || !hasItemsToReturn}>
+                    {isSubmitting ? "Processing…" : "Submit Purchase Return"}
                 </Button>
             </div>
         </form>

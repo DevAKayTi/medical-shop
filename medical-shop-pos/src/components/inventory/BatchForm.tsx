@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ApiProductBatch, ApiSupplier } from "@/lib/inventory";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface Props {
     productName: string;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function BatchForm({ productName, suppliers, initialData, onSubmit, onCancel }: Props) {
+    const toast = useToast();
     const safeISO = (d: string | null | undefined) => {
         if (!d) return "";
         const date = new Date(d);
@@ -47,17 +49,23 @@ export function BatchForm({ productName, suppliers, initialData, onSubmit, onCan
         }
 
         setLoading(true);
-        await onSubmit({
-            batch_number: form.batch_number,
-            supplier_id: form.supplier_id || null,
-            manufacture_date: form.manufacture_date || null,
-            expiry_date: form.expiry_date,
-            quantity: parseInt(form.quantity) || 0,
-            purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
-            selling_price: parseFloat(form.selling_price) || 0,
-            mrp: form.mrp ? parseFloat(form.mrp) : null,
-        });
-        setLoading(false);
+        try {
+            await onSubmit({
+                batch_number: form.batch_number,
+                supplier_id: form.supplier_id || null,
+                manufacture_date: form.manufacture_date || null,
+                expiry_date: form.expiry_date,
+                quantity: parseInt(form.quantity) || 0,
+                purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
+                selling_price: parseFloat(form.selling_price) || 0,
+                mrp: form.mrp ? parseFloat(form.mrp) : null,
+            });
+            toast.success(isEditing ? "Batch updated successfully." : "Batch added successfully.");
+        } catch {
+            toast.error(isEditing ? "Failed to update batch." : "Failed to add batch.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const isEditing = !!initialData;

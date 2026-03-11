@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatCurrency } from "@/lib/currency";
 import { ApiCustomer, customerApi, CreateCustomerPayload, saleApi, ApiSale } from "@/lib/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -7,6 +8,7 @@ import {
     Search, Plus, Edit, Trash2, History, ChevronLeft, RefreshCw,
     Users, Star, TrendingUp, ShoppingBag
 } from "lucide-react";
+import { useToast } from "@/components/ui/ToastProvider";
 
 // ─── Customer Form ────────────────────────────────────────────────────────────
 
@@ -167,14 +169,10 @@ export default function CustomersPage() {
     const [viewingCustomer, setViewingCustomer] = useState<ApiCustomer | null>(null);
     const [customerSales, setCustomerSales] = useState<ApiSale[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
-    const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+    const toast = useToast();
 
     useEffect(() => { loadCustomers(); }, []);
-
-    const showToast = (msg: string, type: "success" | "error" = "success") => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
-    };
 
     const loadCustomers = async () => {
         setLoading(true);
@@ -182,7 +180,7 @@ export default function CustomersPage() {
             const resp = await customerApi.list();
             setCustomers(resp.data || []);
         } catch {
-            showToast("Failed to load customers.", "error");
+            toast.error("Failed to load customers.");
         } finally {
             setLoading(false);
         }
@@ -191,10 +189,10 @@ export default function CustomersPage() {
     const handleSave = async (data: CreateCustomerPayload) => {
         if (editingCustomer) {
             await customerApi.update(editingCustomer.id, data);
-            showToast("Customer updated! ✅");
+            toast.success("Customer updated! ✅");
         } else {
             await customerApi.create(data);
-            showToast("Customer added! 🎉");
+            toast.success("Customer added! 🎉");
         }
         setIsFormOpen(false);
         setEditingCustomer(undefined);
@@ -205,11 +203,11 @@ export default function CustomersPage() {
         if (!confirm("Delete this customer? Their sales history will be preserved.")) return;
         try {
             await customerApi.delete(id);
-            showToast("Customer deleted.");
+            toast.success("Customer deleted.");
             setCustomers(cs => cs.filter(c => c.id !== id));
             if (viewingCustomer?.id === id) setViewingCustomer(null);
         } catch {
-            showToast("Could not delete customer.", "error");
+            toast.error("Could not delete customer.");
         }
     };
 
@@ -299,13 +297,6 @@ export default function CustomersPage() {
     // ─── List View ────────────────────────────────────────────────────
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-top duration-300 ${toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
-                    {toast.msg}
-                </div>
-            )}
-
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -383,7 +374,7 @@ export default function CustomersPage() {
                                             <th className="px-5 py-3">Name</th>
                                             <th className="px-5 py-3">Phone / Email</th>
                                             <th className="px-5 py-3">Loyalty Pts</th>
-                                            <th className="px-5 py-3 text-right">Total Spent</th>
+                                            <th className="px-5 py-3 text-right text-xs">TOTAL SPENT (MMR)</th>
                                             <th className="px-5 py-3 text-center">Actions</th>
                                         </tr>
                                     </thead>

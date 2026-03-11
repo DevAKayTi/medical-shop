@@ -91,7 +91,7 @@ export interface ShopSettings {
 const DEFAULT_SETTINGS: ShopSettings = {
     shopName: "Medical Shop POS",
     taxRate: 5.0, // 5%
-    currencySymbol: "$",
+    currencySymbol: "MMK",
 };
 
 export const storageLib = {

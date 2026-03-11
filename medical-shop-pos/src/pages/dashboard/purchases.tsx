@@ -1,3 +1,4 @@
+import { formatCurrency } from '@/lib/currency';
 import React, { useState, useEffect } from "react";
 import { ApiSupplier, ApiProduct, supplierApi, productApi } from "@/lib/inventory";
 import { ApiPurchase, purchaseApi, ApiPurchaseReturn, purchaseReturnApi } from "@/lib/purchases";
@@ -10,6 +11,7 @@ import {
     ShoppingCart, Plus, Search, Eye, CheckCircle, XCircle,
     Clock, ChevronLeft, RefreshCw, Truck, Package, Undo2, List
 } from "lucide-react";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type ViewMode = "list" | "new" | "detail" | "return" | "return-list";
 
@@ -42,16 +44,11 @@ export default function PurchasesPage() {
     const [search, setSearch] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         loadData();
     }, []);
-
-    const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 3500);
-    };
 
     const loadData = async () => {
         setLoading(true);
@@ -79,7 +76,7 @@ export default function PurchasesPage() {
             setSelectedPurchase(full);
             setView("detail");
         } catch {
-            showToast("Failed to load purchase details.", "error");
+            toast.error("Failed to load purchase details.");
         }
     };
 
@@ -88,14 +85,14 @@ export default function PurchasesPage() {
         setSaving(true);
         try {
             await purchaseApi.markReceived(id);
-            showToast("Purchase marked as received. Stock updated! ✅");
+            toast.success("Purchase marked as received. Stock updated! ✅");
             loadData();
             if (selectedPurchase?.id === id) {
                 const refreshed = await purchaseApi.get(id);
                 setSelectedPurchase(refreshed);
             }
         } catch {
-            showToast("Failed to update purchase.", "error");
+            toast.error("Failed to update purchase.");
         } finally {
             setSaving(false);
         }
@@ -105,18 +102,18 @@ export default function PurchasesPage() {
         if (!confirm("Delete this pending purchase order?")) return;
         try {
             await purchaseApi.delete(id);
-            showToast("Purchase order deleted.");
+            toast.success("Purchase order deleted.");
             loadData();
             if (view === "detail") setView("list");
         } catch {
-            showToast("Cannot delete — only pending orders can be removed.", "error");
+            toast.error("Cannot delete — only pending orders can be removed.");
         }
     };
 
     const handleCreateReturn = async (data: any) => {
         try {
             await purchaseReturnApi.create(data);
-            showToast("Purchase return created successfully! 📦");
+            // Form handles its own success toast
             await loadData();
             setView("list");
         } catch (err) {
@@ -130,10 +127,10 @@ export default function PurchasesPage() {
         setSaving(true);
         try {
             await purchaseReturnApi.complete(id);
-            showToast("Return completed and stock adjusted! ✅");
+            toast.success("Return completed and stock adjusted! ✅");
             await loadData();
         } catch {
-            showToast("Failed to complete return.", "error");
+            toast.error("Failed to complete return.");
         } finally {
             setSaving(false);
         }
@@ -171,7 +168,7 @@ export default function PurchasesPage() {
                     products={products}
                     onSubmit={async (data) => {
                         await purchaseApi.create(data);
-                        showToast("Purchase order created! 🎉");
+                        // Form handles its own success toast
                         await loadData();
                         setView("list");
                     }}
@@ -256,18 +253,18 @@ export default function PurchasesPage() {
                                                     : "—"}
                                             </td>
                                             <td className="px-4 py-3 text-right">{item.quantity}</td>
-                                            <td className="px-4 py-3 text-right">{Number(item.purchase_price).toFixed(2)}</td>
-                                            <td className="px-4 py-3 text-right font-medium">{Number(item.total).toFixed(2)}</td>
+                                            <td className="px-4 py-3 text-right">{formatCurrency(Number(item.purchase_price))}</td>
+                                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(Number(item.total))}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                         <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-right space-y-1">
-                            <div className="text-sm text-slate-500">Subtotal: <span className="font-medium">{Number(p.subtotal).toFixed(2)}</span></div>
-                            {Number(p.discount) > 0 && <div className="text-sm text-slate-500">Discount: <span className="text-red-500">-{Number(p.discount).toFixed(2)}</span></div>}
-                            {Number(p.tax) > 0 && <div className="text-sm text-slate-500">Tax: <span className="text-amber-500">+{Number(p.tax).toFixed(2)}</span></div>}
-                            <div className="text-xl font-bold text-slate-900 dark:text-white">Total: {Number(p.total).toFixed(2)}</div>
+                            <div className="text-sm text-slate-500">Subtotal: <span className="font-medium">{formatCurrency(Number(p.subtotal))}</span></div>
+                            {Number(p.discount) > 0 && <div className="text-sm text-slate-500">Discount: <span className="text-red-500">-{formatCurrency(Number(p.discount))}</span></div>}
+                            {Number(p.tax) > 0 && <div className="text-sm text-slate-500">Tax: <span className="text-amber-500">+{formatCurrency(Number(p.tax))}</span></div>}
+                            <div className="text-xl font-bold text-slate-900 dark:text-white">Total: {formatCurrency(Number(p.total))}</div>
                         </div>
                     </CardContent>
                 </Card>
@@ -339,7 +336,7 @@ export default function PurchasesPage() {
                                                         {r.status}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right font-semibold">{Number(r.total).toFixed(2)}</td>
+                                                <td className="px-5 py-3.5 text-right font-semibold">{formatCurrency(Number(r.total))}</td>
                                                 <td className="px-5 py-3.5 text-center">
                                                     {r.status === 'pending' && (
                                                         <Button variant="ghost" size="sm" onClick={() => handleCompleteReturn(r.id)} disabled={saving} className="text-green-600">
@@ -363,13 +360,6 @@ export default function PurchasesPage() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-top duration-300 ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-                    {toast.msg}
-                </div>
-            )}
-
             {/* Page header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -448,7 +438,7 @@ export default function PurchasesPage() {
                             </div>
                             <div>
                                 <p className="text-xs text-slate-500">Total Purchase Value</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalValue.toFixed(0)}</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(stats.totalValue)}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -514,7 +504,7 @@ export default function PurchasesPage() {
                                             <td className="px-5 py-3.5 text-slate-500 text-xs">
                                                 {p.purchased_at ? new Date(p.purchased_at).toLocaleDateString() : new Date(p.created_at).toLocaleDateString()}
                                             </td>
-                                            <td className="px-5 py-3.5 text-right font-semibold">{Number(p.total).toFixed(2)}</td>
+                                            <td className="px-5 py-3.5 text-right font-semibold">{formatCurrency(Number(p.total))}</td>
                                             <td className="px-5 py-3.5">
                                                 <div className="flex justify-center gap-1">
                                                     <Button variant="ghost" size="icon" title="View Details" onClick={() => openDetail(p)}>

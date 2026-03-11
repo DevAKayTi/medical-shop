@@ -35,6 +35,7 @@ export interface ApiProduct {
     unit: string | null;
     mrp: number;
     purchase_price: number | null;
+    selling_price: number | null;
     tax_rate: number;
     is_controlled_drug: boolean;
     prescription_required: boolean;

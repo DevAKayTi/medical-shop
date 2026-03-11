@@ -1,7 +1,13 @@
-import { useState, useEffect } from "react";
+import { useEffect, useId } from "react";
+import { useForm, SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ApiProduct, ApiCategory } from "@/lib/inventory";
+import { getCurrencySymbol } from "@/lib/currency";
+import { useToast } from "@/components/ui/ToastProvider";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface Props {
     initialData?: ApiProduct;
@@ -41,28 +47,59 @@ const UNITS = [
     { value: "pair", label: "Pair (အစုံ)" }
 ];
 
+const productSchema = z.object({
+    name: z.string().min(1, "Product name is required").max(191),
+    generic_name: z.string().max(191).nullable().optional().or(z.literal("")),
+    barcode: z.string().max(191).nullable().optional().or(z.literal("")),
+    sku: z.string().max(100).nullable().optional().or(z.literal("")),
+    category_id: z.string().uuid("Invalid category").nullable().optional().or(z.literal("")),
+    medicine_type: z.string().nullable().optional().or(z.literal("")),
+    manufacturer: z.string().max(191).nullable().optional().or(z.literal("")),
+    unit: z.string().min(1, "Unit is required"),
+    mrp: z.coerce.number().min(0, "MRP must be at least 0"),
+    tax_rate: z.coerce.number().min(0).max(100).optional().default(0),
+    is_controlled_drug: z.boolean().default(false),
+    prescription_required: z.boolean().default(false),
+    description: z.string().nullable().optional().or(z.literal("")),
+    is_active: z.boolean().default(true),
+});
+
+type ProductFormValues = z.infer<typeof productSchema>;
+
 export function ProductForm({ initialData, categories, onSubmit, onCancel }: Props) {
-    const [form, setForm] = useState({
-        name: "",
-        generic_name: "",
-        barcode: "",
-        sku: "",
-        category_id: "",
-        medicine_type: "",
-        manufacturer: "",
-        unit: "strips",
-        mrp: "",
-        tax_rate: "0",
-        is_controlled_drug: false,
-        prescription_required: false,
-        description: "",
-        is_active: true,
+    const id = useId();
+    const toast = useToast();
+
+    const {
+        register,
+        handleSubmit,
+        reset,
+        setError,
+        clearErrors,
+        formState: { errors, isSubmitting, isDirty, isSubmitSuccessful },
+    } = useForm<ProductFormValues>({
+        resolver: zodResolver(productSchema),
+        defaultValues: {
+            name: "",
+            generic_name: "",
+            barcode: "",
+            sku: "",
+            category_id: "",
+            medicine_type: "",
+            manufacturer: "",
+            unit: "",
+            mrp: 0,
+            tax_rate: 0,
+            is_controlled_drug: false,
+            prescription_required: false,
+            description: "",
+            is_active: true,
+        },
     });
-    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (initialData) {
-            setForm({
+            reset({
                 name: initialData.name,
                 generic_name: initialData.generic_name ?? "",
                 barcode: initialData.barcode ?? "",
@@ -70,135 +107,310 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                 category_id: initialData.category_id ?? "",
                 medicine_type: initialData.medicine_type ?? "",
                 manufacturer: initialData.manufacturer ?? "",
-                unit: initialData.unit ?? "strips",
-                mrp: String(initialData.mrp),
-                tax_rate: String(initialData.tax_rate ?? 0),
-                is_controlled_drug: initialData.is_controlled_drug,
-                prescription_required: initialData.prescription_required,
+                unit: initialData.unit ?? "",
+                mrp: Number(initialData.mrp),
+                tax_rate: Number(initialData.tax_rate ?? 0),
+                is_controlled_drug: !!initialData.is_controlled_drug,
+                prescription_required: !!initialData.prescription_required,
                 description: initialData.description ?? "",
-                is_active: initialData.is_active,
+                is_active: !!initialData.is_active,
             });
         }
-    }, [initialData]);
+    }, [initialData, reset]);
 
-    const set = (k: string, v: string | boolean) => setForm(p => ({ ...p, [k]: v }));
+    const onFormSubmit: SubmitHandler<ProductFormValues> = async (values) => {
+        clearErrors();
+        try {
+            // Clean values: empty strings to null for backend
+            const cleanValues = Object.fromEntries(
+                Object.entries(values).map(([k, v]) => [k, v === "" ? null : v])
+            ) as Partial<ApiProduct>;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        setLoading(true);
-        await onSubmit({
-            name: form.name,
-            generic_name: form.generic_name || null,
-            barcode: form.barcode || null,
-            sku: form.sku || null,
-            category_id: form.category_id || null,
-            medicine_type: form.medicine_type || null,
-            manufacturer: form.manufacturer || null,
-            unit: form.unit || null,
-            mrp: parseFloat(form.mrp) || 0,
-            tax_rate: parseFloat(form.tax_rate) || 0,
-            is_controlled_drug: form.is_controlled_drug,
-            prescription_required: form.prescription_required,
-            description: form.description || null,
-            is_active: form.is_active,
-        });
-        setLoading(false);
+            await onSubmit(cleanValues);
+            toast.success(initialData ? "Product updated successfully." : "Product created successfully.");
+        } catch (err: any) {
+            console.error("Product submission failed:", err);
+            if (err.response?.status === 422 && err.response?.data?.errors) {
+                const serverErrors = err.response.data.errors;
+                Object.keys(serverErrors).forEach((key) => {
+                    setError(key as any, {
+                        type: "server",
+                        message: serverErrors[key][0],
+                    });
+                });
+                toast.error("Please fix the validation errors.");
+            } else {
+                setError("root", {
+                    message: "An unexpected error occurred. Please try again.",
+                });
+                toast.error(initialData ? "Failed to update product." : "Failed to create product.");
+            }
+        }
     };
 
-    const selectCls = "flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50";
+    const handleCancel = () => {
+        if (isDirty && !confirm("You have unsaved changes. Are you sure you want to cancel?")) {
+            return;
+        }
+        onCancel();
+    };
+
+    const fieldError = (name: keyof ProductFormValues | "root") => {
+        const error = errors[name];
+        if (!error) return null;
+        return (
+            <p className="flex items-center gap-1.5 text-[11px] text-red-500 font-medium animate-in fade-in slide-in-from-top-1 duration-200" id={`${id}-${name}-error`} role="alert">
+                <AlertCircle className="h-3 w-3" />
+                {error.message}
+            </p>
+        );
+    };
+
+    const selectCls = "flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors";
+    const errorCls = "border-red-500 focus:ring-red-500 focus:border-red-500";
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
-                {initialData ? "Edit Product" : "Add New Product"}
-            </h3>
+        <form
+            onSubmit={handleSubmit(onFormSubmit)}
+            className="group space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950 transition-all duration-300"
+            noValidate
+        >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-4">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-50">
+                    {initialData ? "Update Product" : "Create New Product"}
+                </h3>
+                {isSubmitSuccessful && !isDirty && (
+                    <div className="flex items-center gap-1 text-emerald-600 text-xs font-semibold animate-in zoom-in duration-300">
+                        <CheckCircle2 className="h-4 w-4" /> Saved Successfully
+                    </div>
+                )}
+            </div>
+
+            {errors.root && (
+                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2 animate-in slide-in-from-left-2 transition-all">
+                    <AlertCircle className="h-4 w-4 mt-0.5" />
+                    {errors.root.message}
+                </div>
+            )}
 
             {/* ── Basic Info ── */}
-            <fieldset className="space-y-4">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Basic Information</legend>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Product / Medicine Name *</label>
-                        <Input required value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Paracetamol 500mg" />
+            <fieldset className="space-y-4" disabled={isSubmitting}>
+                <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Basic Information</legend>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-name`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            Product / Medicine Name <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                            {...register("name")}
+                            id={`${id}-name`}
+                            className={errors.name ? errorCls : ""}
+                            placeholder="e.g. Paracetamol 500mg"
+                            aria-invalid={!!errors.name}
+                            aria-describedby={errors.name ? `${id}-name-error` : undefined}
+                        />
+                        {fieldError("name")}
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Generic Name</label>
-                        <Input value={form.generic_name} onChange={e => set("generic_name", e.target.value)} placeholder="e.g. Acetaminophen" />
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-generic_name`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Generic Name</label>
+                        <Input
+                            {...register("generic_name")}
+                            id={`${id}-generic_name`}
+                            placeholder="e.g. Acetaminophen"
+                        />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Barcode</label>
-                        <Input value={form.barcode} onChange={e => set("barcode", e.target.value)} placeholder="8850222012345" />
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-barcode`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Barcode / GTIN</label>
+                        <Input
+                            {...register("barcode")}
+                            id={`${id}-barcode`}
+                            className={errors.barcode ? errorCls : ""}
+                            placeholder="8850222012345"
+                            aria-invalid={!!errors.barcode}
+                            aria-describedby={errors.barcode ? `${id}-barcode-error` : undefined}
+                        />
+                        {fieldError("barcode")}
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">SKU</label>
-                        <Input value={form.sku} onChange={e => set("sku", e.target.value)} placeholder="PRC-500-01" />
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-sku`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Internal SKU</label>
+                        <Input
+                            {...register("sku")}
+                            id={`${id}-sku`}
+                            className={errors.sku ? errorCls : ""}
+                            placeholder="PRC-500-01"
+                            aria-invalid={!!errors.sku}
+                            aria-describedby={errors.sku ? `${id}-sku-error` : undefined}
+                        />
+                        {fieldError("sku")}
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Manufacturer</label>
-                        <Input value={form.manufacturer} onChange={e => set("manufacturer", e.target.value)} placeholder="e.g. ABC Pharma" />
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-manufacturer`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Manufacturer / Brand</label>
+                        <Input
+                            {...register("manufacturer")}
+                            id={`${id}-manufacturer`}
+                            placeholder="e.g. ABC Pharma"
+                        />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Medicine Type</label>
-                        <select value={form.medicine_type} onChange={e => set("medicine_type", e.target.value)} className={selectCls}>
-                            <option value="">— Select type —</option>
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-medicine_type`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Medicine Type</label>
+                        <select
+                            {...register("medicine_type")}
+                            id={`${id}-medicine_type`}
+                            className={selectCls}
+                        >
+                            <option value="">— Select dosage form —</option>
                             {MEDICINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Category</label>
-                        <select value={form.category_id} onChange={e => set("category_id", e.target.value)} className={selectCls}>
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-category_id`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Category</label>
+                        <select
+                            {...register("category_id")}
+                            id={`${id}-category_id`}
+                            className={errors.category_id ? `${selectCls} ${errorCls}` : selectCls}
+                            aria-invalid={!!errors.category_id}
+                        >
                             <option value="">— No Category —</option>
-                            {categories.filter(c => c.is_active || c.id === form.category_id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {categories.filter(c => c.is_active || c.id === initialData?.category_id).map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
                         </select>
+                        {fieldError("category_id")}
                     </div>
                 </div>
             </fieldset>
 
             {/* ── Pricing ── */}
-            <fieldset className="space-y-4">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Pricing & Unit</legend>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">MRP *</label>
-                        <Input type="number" step="0.01" min="0" required value={form.mrp} onChange={e => set("mrp", e.target.value)} placeholder="0.00" />
+            <fieldset className="space-y-4" disabled={isSubmitting}>
+                <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Pricing & Inventory Unit</legend>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-mrp`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            MRP <span className="text-sm">({getCurrencySymbol()})</span> <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                            {/*  */}
+                            <Input
+                                {...register("mrp")}
+                                id={`${id}-mrp`}
+                                type="number"
+                                step="any"
+                                className={`pl-6 ${errors.mrp ? errorCls : ""}`}
+                                placeholder="0.00"
+                                aria-invalid={!!errors.mrp}
+                            />
+                        </div>
+                        {fieldError("mrp")}
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Tax Rate (%)</label>
-                        <Input type="number" step="0.01" min="0" max="100" value={form.tax_rate} onChange={e => set("tax_rate", e.target.value)} placeholder="0" />
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-tax_rate`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tax Rate (%)</label>
+                        <Input
+                            {...register("tax_rate")}
+                            id={`${id}-tax_rate`}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                        />
                     </div>
-                    <div className="space-y-1">
-                        <label className="text-sm font-medium">Unit</label>
-                        <select value={form.unit} onChange={e => set("unit", e.target.value)} className={selectCls}>
+
+                    <div className="space-y-1.5">
+                        <label htmlFor={`${id}-unit`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            Base Unit <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            {...register("unit")}
+                            id={`${id}-unit`}
+                            className={errors.unit ? `${selectCls} ${errorCls}` : selectCls}
+                        >
+                            <option value="">— Select unit —</option>
                             {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                         </select>
+                        {fieldError("unit")}
                     </div>
                 </div>
             </fieldset>
 
+            {/* ── Descriptions ── */}
+            <fieldset className="space-y-1.5" disabled={isSubmitting}>
+                <label htmlFor={`${id}-description`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Description / Usage Notes</label>
+                <textarea
+                    {...register("description")}
+                    id={`${id}-description`}
+                    rows={3}
+                    className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                    placeholder="Provide additional details about the product..."
+                />
+            </fieldset>
+
             {/* ── Flags ── */}
-            <fieldset className="space-y-2">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Compliance Flags</legend>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="h-4 w-4 rounded" checked={form.is_controlled_drug}
-                        onChange={e => set("is_controlled_drug", e.target.checked)} />
-                    <span className="text-sm">Controlled Drug (Schedule H / Narcotic)</span>
+            <fieldset className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800" disabled={isSubmitting}>
+                <label className="flex items-center gap-3 cursor-pointer group/flag">
+                    <input
+                        type="checkbox"
+                        {...register("is_controlled_drug")}
+                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    />
+                    <div className="space-y-0.5">
+                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Controlled Drug</span>
+                        <span className="text-[10px] text-slate-500 hidden sm:block">Schedule H / Narcotic</span>
+                    </div>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="h-4 w-4 rounded" checked={form.prescription_required}
-                        onChange={e => set("prescription_required", e.target.checked)} />
-                    <span className="text-sm">Prescription Required</span>
+
+                <label className="flex items-center gap-3 cursor-pointer group/flag">
+                    <input
+                        type="checkbox"
+                        {...register("prescription_required")}
+                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    />
+                    <div className="space-y-0.5">
+                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Rx Required</span>
+                        <span className="text-[10px] text-slate-500 hidden sm:block">Requires Prescription</span>
+                    </div>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="h-4 w-4 rounded" checked={form.is_active}
-                        onChange={e => set("is_active", e.target.checked)} />
-                    <span className="text-sm">Active (visible in POS)</span>
+
+                <label className="flex items-center gap-3 cursor-pointer group/flag">
+                    <input
+                        type="checkbox"
+                        {...register("is_active")}
+                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    />
+                    <div className="space-y-0.5">
+                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Active</span>
+                        <span className="text-[10px] text-slate-500 hidden sm:block">Visible in POS & Store</span>
+                    </div>
                 </label>
             </fieldset>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" disabled={loading}>{loading ? "Saving..." : initialData ? "Save Changes" : "Add Product"}</Button>
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-900">
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={handleCancel}
+                    className="w-full sm:w-auto"
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving...
+                        </span>
+                    ) : initialData ? "Confirm Update" : "Create Product"}
+                </Button>
             </div>
         </form>
     );

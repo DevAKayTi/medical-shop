@@ -23,7 +23,7 @@ class SupplierController extends Controller
         $data = $request->validate([
             'name'           => 'required|string|max:191',
             'contact_person' => 'nullable|string|max:191',
-            'phone'          => 'nullable|string|max:30',
+            'phone'          => 'required|string|max:30',
             'email'          => 'nullable|email|max:191',
             'address'        => 'nullable|string',
             'is_active'      => 'boolean',
@@ -39,7 +39,7 @@ class SupplierController extends Controller
         $data = $request->validate([
             'name'           => 'sometimes|string|max:191',
             'contact_person' => 'nullable|string|max:191',
-            'phone'          => 'nullable|string|max:30',
+            'phone'          => 'required|string|max:30',
             'email'          => 'nullable|email|max:191',
             'address'        => 'nullable|string',
             'is_active'      => 'boolean',

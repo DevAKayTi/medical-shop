@@ -25,12 +25,22 @@ class ProductController extends Controller
         $data = $request->validate([
             'name'                 => 'required|string|max:191',
             'generic_name'         => 'nullable|string|max:191',
-            'barcode'              => 'nullable|string|max:191',
-            'sku'                  => 'nullable|string|max:100',
+            'barcode'              => [
+                'nullable',
+                'string',
+                'max:191',
+                \Illuminate\Validation\Rule::unique('products')->where(fn ($q) => $q->where('shop_id', $user->shop_id))
+            ],
+            'sku'                  => [
+                'nullable',
+                'string',
+                'max:100',
+                \Illuminate\Validation\Rule::unique('products')->where(fn ($q) => $q->where('shop_id', $user->shop_id))
+            ],
             'category_id'          => 'nullable|uuid|exists:categories,id',
             'medicine_type'        => 'nullable|in:tablet,capsule,syrup,suspension,injection,infusion,cream,ointment,gel,drops,inhaler,spray,powder,suppository,other',
             'manufacturer'         => 'nullable|string|max:191',
-            'unit'                 => 'nullable|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
+            'unit'                 => 'required|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
             'mrp'                  => 'required|numeric|min:0',
             'purchase_price'       => 'nullable|numeric|min:0',
             'tax_rate'             => 'nullable|numeric|min:0|max:100',
@@ -38,6 +48,10 @@ class ProductController extends Controller
             'prescription_required'=> 'boolean',
             'description'          => 'nullable|string',
             'is_active'            => 'boolean',
+        ], [
+            'barcode.unique' => 'This barcode is already assigned to another product in your shop.',
+            'sku.unique'     => 'This SKU is already assigned to another product in your shop.',
+            'mrp.required'   => 'Maximum Retail Price (MRP) is required.',
         ]);
 
         $data['shop_id'] = $user->shop_id;
@@ -52,15 +66,30 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
+        $user = $request->user();
         $data = $request->validate([
             'name'                 => 'sometimes|string|max:191',
             'generic_name'         => 'nullable|string|max:191',
-            'barcode'              => 'nullable|string|max:191',
-            'sku'                  => 'nullable|string|max:100',
+            'barcode'              => [
+                'nullable',
+                'string',
+                'max:191',
+                \Illuminate\Validation\Rule::unique('products')
+                    ->where(fn ($q) => $q->where('shop_id', $user->shop_id))
+                    ->ignore($product->id)
+            ],
+            'sku'                  => [
+                'nullable',
+                'string',
+                'max:100',
+                \Illuminate\Validation\Rule::unique('products')
+                    ->where(fn ($q) => $q->where('shop_id', $user->shop_id))
+                    ->ignore($product->id)
+            ],
             'category_id'          => 'nullable|uuid|exists:categories,id',
             'medicine_type'        => 'nullable|in:tablet,capsule,syrup,suspension,injection,infusion,cream,ointment,gel,drops,inhaler,spray,powder,suppository,other',
             'manufacturer'         => 'nullable|string|max:191',
-            'unit'                 => 'nullable|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
+            'unit'                 => 'required|in:piece,strip,box,bottle,vial,ampoule,tube,sachet,pack,pair',
             'mrp'                  => 'sometimes|numeric|min:0',
             'purchase_price'       => 'nullable|numeric|min:0',
             'tax_rate'             => 'nullable|numeric|min:0|max:100',
@@ -68,6 +97,9 @@ class ProductController extends Controller
             'prescription_required'=> 'boolean',
             'description'          => 'nullable|string',
             'is_active'            => 'boolean',
+        ], [
+            'barcode.unique' => 'This barcode is already assigned to another product in your shop.',
+            'sku.unique'     => 'This SKU is already assigned to another product in your shop.',
         ]);
 
         $product->update($data);

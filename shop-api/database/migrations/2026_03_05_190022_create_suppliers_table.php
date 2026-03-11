@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUuid('shop_id')->constrained('shops');
             $table->string('name', 191);
             $table->string('contact_person', 191)->nullable();
-            $table->string('phone', 30)->nullable();
+            $table->string('phone', 30);
             $table->string('email', 191)->nullable();
             $table->text('address')->nullable();
             $table->boolean('is_active')->default(true);

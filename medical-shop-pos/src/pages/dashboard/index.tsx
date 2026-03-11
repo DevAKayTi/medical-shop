@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { storageLib } from "@/lib/storage";
 import { dashboardApi, DashboardStats } from "@/lib/dashboard";
+import { formatCurrency } from "@/lib/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Receipt, PackageSearch, AlertTriangle } from "lucide-react";
 
@@ -26,8 +27,8 @@ export default function DashboardIndex() {
             </div>
 
             {loading ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    {[...Array(4)].map((_, i) => (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[...Array(6)].map((_, i) => (
                         <Card key={i} className="animate-pulse">
                             <CardHeader className="flex flex-row items-center justify-between pb-2">
                                 <div className="h-4 w-24 bg-slate-200 dark:bg-slate-800 rounded"></div>
@@ -40,16 +41,43 @@ export default function DashboardIndex() {
                     ))}
                 </div>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {/* Revenue Row */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                            <CardTitle className="text-sm font-medium">Today's Revenue</CardTitle>
                             <Receipt className="h-4 w-4 text-emerald-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">${Number(stats?.revenue?.current || 0).toLocaleString()}</div>
+                            <div className="text-2xl font-bold">{formatCurrency(stats?.revenue?.daily?.current || 0)}</div>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {Number(stats?.revenue?.growth || 0) >= 0 ? "+" : ""}{stats?.revenue?.growth || 0}% from last month
+                                {Number(stats?.revenue?.daily?.growth || 0) >= 0 ? "+" : ""}{stats?.revenue?.daily?.growth || 0}% from yesterday
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">This Month's Revenue</CardTitle>
+                            <Receipt className="h-4 w-4 text-emerald-600" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats?.revenue?.monthly?.current || 0)}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {Number(stats?.revenue?.monthly?.growth || 0) >= 0 ? "+" : ""}{stats?.revenue?.monthly?.growth || 0}% from last month
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">This Year's Revenue</CardTitle>
+                            <Receipt className="h-4 w-4 text-emerald-700" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(stats?.revenue?.yearly?.current || 0)}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {Number(stats?.revenue?.yearly?.growth || 0) >= 0 ? "+" : ""}{stats?.revenue?.yearly?.growth || 0}% from last year
                             </p>
                         </CardContent>
                     </Card>

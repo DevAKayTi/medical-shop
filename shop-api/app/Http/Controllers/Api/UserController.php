@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Role;
 
@@ -15,7 +16,10 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::with('roles')->get();
+        $shopId = Auth::user()->shop_id;
+        $users = User::with('roles')
+            ->where('shop_id', $shopId)
+            ->get();
         return response()->json($users);
     }
 
@@ -34,11 +38,12 @@ class UserController extends Controller
         ]);
 
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'is_active' => $request->boolean('is_active', true),
+            'shop_id'    => Auth::user()->shop_id,
+            'name'       => $validated['name'],
+            'email'      => $validated['email'],
+            'phone'      => $validated['phone'] ?? null,
+            'password'   => Hash::make($validated['password']),
+            'is_active'  => $request->boolean('is_active', true),
         ]);
 
         $role = Role::where('slug', $validated['role'])->first();

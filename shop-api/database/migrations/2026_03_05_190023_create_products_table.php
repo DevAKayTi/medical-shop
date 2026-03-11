@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('sku', 100)->nullable();
             $table->string('medicine_type', 50)->nullable();
             $table->string('manufacturer', 191)->nullable();
-            $table->string('unit', 50)->nullable();
+            $table->string('unit', 50);
             $table->decimal('mrp', 10, 2);
             $table->decimal('purchase_price', 10, 2)->nullable();
             $table->decimal('tax_rate', 5, 2)->default(0);

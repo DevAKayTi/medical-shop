@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatNumber, getCurrencySymbol } from "@/lib/currency";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
     ApiProduct, ApiCategory, ApiSupplier, ApiProductBatch, ApiStockAdjustment, ApiInventoryLedger,
     productApi, categoryApi, supplierApi, adjustmentApi, ledgerApi
@@ -22,6 +24,7 @@ import { LedgerTable } from "@/components/inventory/LedgerTable";
 type TabType = "products" | "batches" | "categories" | "suppliers" | "adjustments" | "ledger";
 
 export default function InventoryPage() {
+    const toast = useToast();
     const [activeTab, setActiveTab] = useState<TabType>("products");
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -56,6 +59,7 @@ export default function InventoryPage() {
             setSuppliers(s);
         } catch (err) {
             console.error("Failed to load inventory data", err);
+            toast.error("Failed to load inventory data.");
         } finally {
             setLoading(false);
         }
@@ -99,23 +103,30 @@ export default function InventoryPage() {
 
     const handleDeleteProduct = async (id: string) => {
         if (confirm("Delete this product and all its history?")) {
-            await productApi.delete(id);
-            setProducts(prev => prev.filter(p => p.id !== id));
+            try {
+                await productApi.delete(id);
+                setProducts(prev => prev.filter(p => p.id !== id));
+                toast.success("Product deleted.");
+            } catch {
+                toast.error("Failed to delete product.");
+            }
         }
     };
 
-    const handleEditBatch = (batch: ApiProductBatch) => {
-        setEditingItem(batch);
-        setIsFormOpen(true);
-    };
+
 
 
 
     const handleToggleCategoryStatus = async (category: ApiCategory) => {
         const newStatus = !category.is_active;
         if (confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this category?`)) {
-            await categoryApi.update(category.id, { is_active: newStatus });
-            setCategories(categories.map(c => c.id === category.id ? { ...c, is_active: newStatus } : c));
+            try {
+                await categoryApi.update(category.id, { is_active: newStatus });
+                setCategories(categories.map(c => c.id === category.id ? { ...c, is_active: newStatus } : c));
+                toast.success(`Category ${newStatus ? 'activated' : 'deactivated'}.`);
+            } catch {
+                toast.error("Failed to update category status.");
+            }
         }
     };
 
@@ -162,8 +173,13 @@ export default function InventoryPage() {
                         <Plus className="mr-2 h-4 w-4" /> Add {activeTab === "products" ? "Product" : "Category"}
                     </Button>
                 )}
+                {activeTab === "suppliers" && (
+                    <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }} className="flex-shrink-0">
+                        <Plus className="mr-2 h-4 w-4" /> Add Supplier
+                    </Button>
+                )}
                 {activeTab === "adjustments" && (
-                    <Button onClick={() => setIsFormOpen(true)} className="flex-shrink-0 bg-amber-600 hover:bg-amber-700">
+                    <Button onClick={() => setIsFormOpen(true)} className="flex-shrink-0">
                         <ArrowRightLeft className="mr-2 h-4 w-4" /> New Adjustment
                     </Button>
                 )}
@@ -277,8 +293,9 @@ export default function InventoryPage() {
                                                     <tr>
                                                         <th className="px-4 py-3 font-medium">Name / Generic</th>
                                                         <th className="px-4 py-3 font-medium">Category / Type</th>
-                                                        <th className="px-4 py-3 font-medium text-right">Selling Price</th>
+                                                        <th className="px-4 py-3 font-medium text-right">Selling Price ({getCurrencySymbol()})</th>
                                                         <th className="px-4 py-3 font-medium text-right">In Stock</th>
+                                                        <th className="px-4 py-3 font-medium text-center">Status</th>
                                                         <th className="px-4 py-3 font-medium text-center">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -300,6 +317,11 @@ export default function InventoryPage() {
                                                                 <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${calculateStock(p) < 10 ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"
                                                                     }`}>
                                                                     {calculateStock(p)}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${p.is_active ? "text-emerald-700 bg-emerald-100" : "text-slate-500 bg-slate-100"}`}>
+                                                                    {p.is_active ? "Active" : "Inactive"}
                                                                 </span>
                                                             </td>
                                                             <td className="px-4 py-3 text-center">
@@ -374,9 +396,6 @@ export default function InventoryPage() {
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between">
                                     <CardTitle>Management: Suppliers</CardTitle>
-                                    <Button size="sm" onClick={() => { setEditingItem(null); setIsFormOpen(true); }}>
-                                        <Plus className="h-4 w-4 mr-2" /> Add Supplier
-                                    </Button>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="overflow-x-auto">
@@ -526,7 +545,7 @@ export default function InventoryPage() {
                                                         setIsFormOpen(false);
                                                         setEditingItem(null);
                                                         loadBatches(selectedProductId!);
-                                                        loadInitialData(); // Refresh product total stock
+                                                        loadInitialData();
                                                     }}
                                                     onCancel={() => {
                                                         setIsFormOpen(false);
@@ -542,9 +561,8 @@ export default function InventoryPage() {
                                                                 <th className="px-4 py-2">Supplier</th>
                                                                 <th className="px-4 py-2">Expiry</th>
                                                                 <th className="px-4 py-2 text-right">Stock</th>
-                                                                <th className="px-4 py-2 text-right">Vendor Price</th>
-                                                                <th className="px-4 py-2 text-right">Selling Price</th>
-                                                                <th className="px-4 py-2 text-right">Actions</th>
+                                                                <th className="px-4 py-2 text-right">Vendor Price ({getCurrencySymbol()})</th>
+                                                                <th className="px-4 py-2 text-right">Selling Price ({getCurrencySymbol()})</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="divide-y dark:divide-slate-800">
@@ -558,15 +576,8 @@ export default function InventoryPage() {
                                                                         </span>
                                                                     </td>
                                                                     <td className="px-4 py-3 text-right">{b.quantity}</td>
-                                                                    <td className="px-4 py-3 text-right">${b.purchase_price ? Number(b.purchase_price).toFixed(2) : "0.00"}</td>
-                                                                    <td className="px-4 py-3 text-right">${b.selling_price ? Number(b.selling_price).toFixed(2) : "0.00"}</td>
-                                                                    <td className="px-4 py-3 text-right">
-                                                                        <div className="flex justify-end gap-1">
-                                                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBatch(b)}>
-                                                                                <Edit className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right">{formatNumber(b.purchase_price)}</td>
+                                                                    <td className="px-4 py-3 text-right">{formatNumber(b.selling_price)}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
@@ -616,7 +627,7 @@ export default function InventoryPage() {
         if (prices.length === 0) return "—";
         const min = Math.min(...prices);
         const max = Math.max(...prices);
-        if (min === max) return `$${min.toFixed(2)}`;
-        return `$${min.toFixed(2)} - $${max.toFixed(2)}`;
+        if (min === max) return formatNumber(min);
+        return `${formatNumber(min)} - ${formatNumber(max)}`;
     }
 }

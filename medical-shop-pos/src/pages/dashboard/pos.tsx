@@ -1,3 +1,4 @@
+import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +12,7 @@ import {
     StickyNote, X, ShoppingCart, UserCheck, Store, LogOut
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
+import { useToast } from "@/components/ui/ToastProvider";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,8 @@ export default function POSPage() {
     const [submitting, setSubmitting] = useState(false);
     const [lastSale, setLastSale] = useState<ApiSale | null>(null);
     const receiptRef = useRef<HTMLDivElement>(null);
+
+    const toast = useToast();
 
     // Shift Session States
     const [activeSession, setActiveSession] = useState<ApiShiftSession | null>(null);
@@ -139,13 +143,18 @@ export default function POSPage() {
             (p.generic_name || "").toLowerCase().includes(s) ||
             (p.barcode || "").toLowerCase().includes(s) ||
             (p.sku || "").toLowerCase().includes(s)
-        ) && getStock(p) > 0;
+        );
     });
 
     // ─── Cart Operations ────────────────────────────────────────────────
 
     const addToCart = (product: ApiProduct) => {
         const stock = getStock(product);
+
+        if (stock <= 0) {
+            toast.error("This product is out of stock and cannot be sold.");
+            return;
+        }
         const existing = cart.findIndex(i => i.product_id === product.id);
         if (existing >= 0) {
             if (cart[existing].quantity >= stock) return;
@@ -262,8 +271,8 @@ export default function POSPage() {
                 <div className="text-center">
                     <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Sale Complete!</h2>
                     <p className="text-slate-500 mt-1">Invoice: <span className="font-mono font-medium">{lastSale.invoice_number}</span></p>
-                    <p className="text-slate-500">Total: <span className="font-bold text-emerald-600">{Number(lastSale.total).toFixed(2)}</span></p>
-                    {Number(lastSale.change_amount) > 0 && <p className="text-slate-500">Change: <span className="font-bold">{Number(lastSale.change_amount).toFixed(2)}</span></p>}
+                    <p className="text-slate-500">Total: <span className="font-bold text-emerald-600">{formatCurrency(Number(lastSale.total))}</span></p>
+                    {Number(lastSale.change_amount) > 0 && <p className="text-slate-500">Change: <span className="font-bold">{formatCurrency(Number(lastSale.change_amount))}</span></p>}
                 </div>
                 <div className="flex gap-3">
                     <Button variant="outline" onClick={() => handlePrint()}>
@@ -285,17 +294,17 @@ export default function POSPage() {
                             {lastSale.items?.map((item, i) => (
                                 <div key={i} className="flex justify-between">
                                     <span>{item.quantity}x {item.product?.name}</span>
-                                    <span>{Number(item.total).toFixed(2)}</span>
+                                    <span>{formatCurrency(Number(item.total))}</span>
                                 </div>
                             ))}
                         </div>
                         <div className="space-y-1 mt-2">
-                            <div className="flex justify-between"><span>Subtotal</span><span>{Number(lastSale.subtotal).toFixed(2)}</span></div>
-                            {Number(lastSale.discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-{Number(lastSale.discount).toFixed(2)}</span></div>}
-                            {Number(lastSale.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+{Number(lastSale.tax).toFixed(2)}</span></div>}
-                            <div className="flex justify-between font-bold text-sm border-t pt-1"><span>TOTAL</span><span>{Number(lastSale.total).toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Paid</span><span>{Number(lastSale.amount_paid).toFixed(2)}</span></div>
-                            {Number(lastSale.change_amount) > 0 && <div className="flex justify-between"><span>Change</span><span>{Number(lastSale.change_amount).toFixed(2)}</span></div>}
+                            <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(Number(lastSale.subtotal))}</span></div>
+                            {Number(lastSale.discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(Number(lastSale.discount))}</span></div>}
+                            {Number(lastSale.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+{formatCurrency(Number(lastSale.tax))}</span></div>}
+                            <div className="flex justify-between font-bold text-sm border-t pt-1"><span>TOTAL</span><span>{formatCurrency(Number(lastSale.total))}</span></div>
+                            <div className="flex justify-between"><span>Paid</span><span>{formatCurrency(Number(lastSale.amount_paid))}</span></div>
+                            {Number(lastSale.change_amount) > 0 && <div className="flex justify-between"><span>Change</span><span>{formatCurrency(Number(lastSale.change_amount))}</span></div>}
                         </div>
                         <p className="text-center mt-4">Thank you for visiting!</p>
                     </div>
@@ -308,7 +317,7 @@ export default function POSPage() {
 
     if (!loading && !activeSession) {
         return (
-            <div className="flex flex-col items-center justify-center h-full py-12 animate-in fade-in duration-500">
+            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] py-12 animate-in fade-in duration-500">
                 <Card className="w-full max-w-md shadow-lg border-blue-100 dark:border-blue-900/30">
                     <CardHeader className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30">
                         <CardTitle className="text-xl flex items-center gap-2 text-blue-800 dark:text-blue-300">
@@ -340,7 +349,7 @@ export default function POSPage() {
                             <div>
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Opening Cash Amount</label>
                                 <div className="relative mt-1">
-                                    <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
+                                    <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{getCurrencySymbol()}</span>
                                     <Input
                                         type="number"
                                         placeholder="0.00"
@@ -389,26 +398,26 @@ export default function POSPage() {
                                 <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg space-y-2 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Opening Cash:</span>
-                                        <span className="font-semibold">{Number(activeSession.opening_cash).toFixed(2)}</span>
+                                        <span className="font-semibold">{formatCurrency(Number(activeSession.opening_cash))}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Total Sales:</span>
-                                        <span className="font-semibold text-emerald-600">{Number(activeSession.total_sales).toFixed(2)}</span>
+                                        <span className="font-semibold text-emerald-600">{formatCurrency(Number(activeSession.total_sales))}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Total Refunds:</span>
-                                        <span className="font-semibold text-red-500">{Number(activeSession.total_refunds).toFixed(2)}</span>
+                                        <span className="font-semibold text-red-500">{formatCurrency(Number(activeSession.total_refunds))}</span>
                                     </div>
                                     <div className="flex justify-between border-t pt-2 mt-2 dark:border-slate-800 font-bold">
                                         <span>Expected Drawer:</span>
-                                        <span>{(Number(activeSession.opening_cash) + Number(activeSession.total_sales) - Number(activeSession.total_refunds)).toFixed(2)}</span>
+                                        <span>{formatCurrency(Number(activeSession.opening_cash) + Number(activeSession.total_sales) - Number(activeSession.total_refunds))}</span>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Actual Closing Cash</label>
                                     <div className="relative mt-1">
-                                        <span className="absolute left-3 top-2.5 text-slate-500 text-sm">$</span>
+                                        <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{getCurrencySymbol()}</span>
                                         <Input
                                             type="number"
                                             placeholder="0.00"
@@ -483,24 +492,34 @@ export default function POSPage() {
                             <p className="py-16 text-center text-slate-400">Loading products…</p>
                         ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
-                                {filteredProducts.map(p => (
-                                    <div
-                                        key={p.id}
-                                        onClick={() => addToCart(p)}
-                                        className="border rounded-xl p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500/50 active:scale-95 transition-all duration-150 bg-white dark:bg-slate-900 dark:border-slate-800 flex flex-col justify-between h-28 select-none"
-                                    >
-                                        <div>
-                                            <p className="font-semibold text-sm line-clamp-2 leading-tight">{p.name}</p>
-                                            <p className="text-xs text-slate-400 mt-0.5 truncate">{p.generic_name || p.sku}</p>
+                                {filteredProducts.map(p => {
+                                    const stock = getStock(p);
+                                    const isOutOfStock = stock <= 0;
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => addToCart(p)}
+                                            className={`border rounded-xl p-3 cursor-pointer transition-all duration-150 flex flex-col justify-between h-28 select-none ${isOutOfStock
+                                                    ? "opacity-50 grayscale border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 cursor-not-allowed"
+                                                    : "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500/50 active:scale-95 bg-white dark:bg-slate-900 dark:border-slate-800"
+                                                }`}
+                                        >
+                                            <div>
+                                                <p className="font-semibold text-sm line-clamp-2 leading-tight">{p.name}</p>
+                                                <p className="text-xs text-slate-400 mt-0.5 truncate">{p.generic_name || p.sku}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-2">
+                                                <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(Number(p.selling_price || p.mrp))}</span>
+                                                <span className={`text-xs px-1.5 py-0.5 rounded border ${isOutOfStock
+                                                        ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
+                                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:border-slate-700"
+                                                    }`}>
+                                                    {isOutOfStock ? "Out of Stock" : stock}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between items-center mt-2">
-                                            <span className="font-bold text-blue-600 dark:text-blue-400">{Number(p.selling_price || p.mrp).toFixed(2)}</span>
-                                            <span className="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 dark:text-slate-400 border dark:border-slate-700">
-                                                {getStock(p)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 {filteredProducts.length === 0 && (
                                     <div className="col-span-full py-12 text-center text-slate-400">
                                         {search ? "No products matching your search." : "No products with available stock."}
@@ -564,7 +583,7 @@ export default function POSPage() {
                                                 className="w-16 h-7 pl-4 pr-1 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                             />
                                         </div>
-                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{item.total.toFixed(2)}</span>
+                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(item.total)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -610,20 +629,20 @@ export default function POSPage() {
                         {/* Totals */}
                         <div className="space-y-1 text-sm">
                             <div className="flex justify-between text-slate-500">
-                                <span>Subtotal</span><span>{subtotal.toFixed(2)}</span>
+                                <span>Subtotal</span><span>{formatCurrency(subtotal)}</span>
                             </div>
                             {totalDiscount > 0 && (
                                 <div className="flex justify-between text-red-500">
-                                    <span>Discount</span><span>-{totalDiscount.toFixed(2)}</span>
+                                    <span>Discount</span><span>-{formatCurrency(totalDiscount)}</span>
                                 </div>
                             )}
                             {totalTax > 0 && (
                                 <div className="flex justify-between text-amber-600">
-                                    <span>Tax</span><span>+{totalTax.toFixed(2)}</span>
+                                    <span>Tax</span><span>+{formatCurrency(totalTax)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white border-t pt-2 dark:border-slate-700">
-                                <span>TOTAL</span><span>{grandTotal.toFixed(2)}</span>
+                                <span>TOTAL</span><span>{formatCurrency(grandTotal)}</span>
                             </div>
                         </div>
 
@@ -654,7 +673,7 @@ export default function POSPage() {
                                 />
                                 {paid > 0 && (
                                     <span className={`absolute right-2 top-2 text-xs font-medium ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                                        {change >= 0 ? `+${change.toFixed(2)}` : `${(paid - grandTotal).toFixed(2)}`}
+                                        {change >= 0 ? `+${formatCurrency(change)}` : formatCurrency(paid - grandTotal)}
                                     </span>
                                 )}
                             </div>
@@ -665,7 +684,7 @@ export default function POSPage() {
                             disabled={cart.length === 0 || submitting || paid < grandTotal}
                             className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                         >
-                            {submitting ? "Processing…" : `Checkout — ${grandTotal.toFixed(2)}`}
+                            {submitting ? "Processing…" : `Checkout — ${formatCurrency(grandTotal)}`}
                         </Button>
                     </div>
                 </Card>
