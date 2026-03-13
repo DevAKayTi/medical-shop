@@ -178,7 +178,16 @@ class PurchaseController extends Controller implements HasMiddleware
             abort(403);
         }
 
-        return response()->json($purchase->load(['supplier', 'items.product', 'items.batch', 'returns']));
+        $purchase->load(['supplier', 'items.product', 'items.batch', 'returns']);
+
+        // Dynamically calculate returned_quantity for each item
+        $purchase->items->each(function ($item) {
+            $item->returned_quantity = DB::table('purchase_return_items')
+                ->where('purchase_item_id', $item->id)
+                ->sum('quantity');
+        });
+
+        return response()->json($purchase);
     }
 
     /**
@@ -197,7 +206,8 @@ class PurchaseController extends Controller implements HasMiddleware
             'notes'        => 'nullable|string',
             'discount'     => 'sometimes|numeric|min:0',
             'tax'          => 'sometimes|numeric|min:0',
-            'total'        => 'sometimes|numeric|min:0',
+            'total'          => 'sometimes|numeric|min:0',
+            'payment_status' => 'sometimes|in:unpaid,paid,partial',
         ]);
 
         $previousStatus = $purchase->status;

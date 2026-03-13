@@ -53,7 +53,7 @@ Route::middleware('auth:api')->group(function () {
     Route::apiResource('purchases', PurchaseController::class);
 
     // Purchase Returns
-    Route::apiResource('purchase-returns', PurchaseReturnController::class)->only(['index', 'store', 'show']);
+    Route::apiResource('purchase-returns', PurchaseReturnController::class)->only(['index', 'store', 'show', 'update']);
     Route::post('purchase-returns/{purchaseReturn}/complete', [PurchaseReturnController::class, 'complete']);
 
     // ── Customers ─────────────────────────────────────────────────────

@@ -82,6 +82,21 @@ class PurchaseReturnController extends Controller implements HasMiddleware
             ->firstOrFail();
 
         $return = DB::transaction(function () use ($validated, $shopId, $userId, $status, $purchase) {
+            // Validate quantities before creating the return
+            foreach ($validated['items'] as $itemData) {
+                $purchaseItem = DB::table('purchase_items')
+                    ->where('id', $itemData['purchase_item_id'])
+                    ->first();
+
+                $alreadyReturned = DB::table('purchase_return_items')
+                    ->where('purchase_item_id', $itemData['purchase_item_id'])
+                    ->sum('quantity');
+
+                if (($alreadyReturned + $itemData['quantity']) > $purchaseItem->quantity) {
+                    throw new \Exception("Cannot return more than purchased for product ID: {$itemData['product_id']}. Purchased: {$purchaseItem->quantity}, Already Returned: {$alreadyReturned}");
+                }
+            }
+
             $return = PurchaseReturn::create([
                 'shop_id'       => $shopId,
                 'purchase_id'   => $purchase->id,
@@ -172,6 +187,25 @@ class PurchaseReturnController extends Controller implements HasMiddleware
                 );
             }
         });
+
+        return response()->json($purchaseReturn->fresh()->load(['purchase', 'supplier', 'items.product', 'items.batch']));
+    }
+    /**
+     * Update a purchase return (e.g. change payment status).
+     */
+    public function update(Request $request, PurchaseReturn $purchaseReturn)
+    {
+        if ($purchaseReturn->shop_id !== Auth::user()->shop_id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'payment_status' => 'sometimes|in:unpaid,paid',
+            'status'         => 'sometimes|in:pending,completed,cancelled',
+            'reason'         => 'sometimes|string|nullable',
+        ]);
+
+        $purchaseReturn->update($validated);
 
         return response()->json($purchaseReturn->fresh()->load(['purchase', 'supplier', 'items.product', 'items.batch']));
     }

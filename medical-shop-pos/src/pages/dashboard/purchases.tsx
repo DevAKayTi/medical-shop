@@ -37,14 +37,14 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 const PaymentStatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, string> = {
-        pending: "bg-amber-100 text-amber-700",
+        unpaid: "bg-amber-100 text-amber-700",
         paid: "bg-green-100 text-green-700",
-        refunded: "bg-purple-100 text-purple-700",
+        partial: "bg-blue-100 text-blue-700",
     };
     const icons: Record<string, React.ReactNode> = {
-        pending: <Clock className="h-3 w-3 mr-1" />,
+        unpaid: <Clock className="h-3 w-3 mr-1" />,
         paid: <CheckCircle className="h-3 w-3 mr-1" />,
-        refunded: <RefreshCw className="h-3 w-3 mr-1" />,
+        partial: <CreditCard className="h-3 w-3 mr-1" />,
     };
     return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${map[status] || "bg-slate-100 text-slate-600"}`}>
@@ -177,7 +177,7 @@ export default function PurchasesPage() {
         }
     };
 
-    const handleUpdateReturnPaymentStatus = async (id: string, payment_status: 'pending' | 'refunded') => {
+    const handleUpdateReturnPaymentStatus = async (id: string, payment_status: 'unpaid' | 'paid') => {
         setUpdatingReturnPayment(true);
         try {
             const updated = await purchaseReturnApi.updatePaymentStatus(id, payment_status);
@@ -200,7 +200,7 @@ export default function PurchasesPage() {
         }
     };
 
-    const handleUpdatePaymentStatus = async (id: string, payment_status: 'pending' | 'paid' | 'partial' | 'refunded') => {
+    const handleUpdatePaymentStatus = async (id: string, payment_status: 'unpaid' | 'paid' | 'partial') => {
         setUpdatingPayment(true);
         try {
             await purchaseApi.updatePaymentStatus(id, payment_status);
@@ -232,7 +232,7 @@ export default function PurchasesPage() {
         received: purchases.filter(p => p.status === 'received').length,
         totalValue: purchases.filter(p => p.status === 'received').reduce((s, p) => s + Number(p.total), 0),
         pendingReturns: returns.filter(r => r.status === 'pending').length,
-        unpaid: purchases.filter(p => p.payment_status === 'pending').length,
+        unpaid: purchases.filter(p => p.payment_status === 'unpaid').length,
     };
 
     // ─── Views ──────────────────────────────────────────────────────────
@@ -299,8 +299,9 @@ export default function PurchasesPage() {
                                     onChange={e => handleUpdatePaymentStatus(p.id, e.target.value as any)}
                                     className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                 >
-                                    <option value="pending">Unpaid</option>
+                                    <option value="unpaid">Unpaid</option>
                                     <option value="paid">Paid</option>
+                                    <option value="partial">Partial</option>
                                 </select>
                             )}
                         </div>
@@ -545,10 +546,10 @@ export default function PurchasesPage() {
                                 {/* Payment Status Update */}
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                                     <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">Payment Status</p>
-                                    {selectedReturn.payment_status === 'refunded' ? (
+                                    {selectedReturn.payment_status === 'paid' ? (
                                         <div className="flex items-center gap-2">
-                                            <PaymentStatusBadge status="refunded" />
-                                            <span className="text-xs text-purple-600 font-medium">Locked — cannot revert to pending</span>
+                                            <PaymentStatusBadge status="paid" />
+                                            <span className="text-xs text-green-600 font-medium">Locked — cannot revert to unpaid</span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-3">
@@ -556,11 +557,11 @@ export default function PurchasesPage() {
                                             <Button
                                                 size="sm"
                                                 disabled={updatingReturnPayment}
-                                                onClick={() => handleUpdateReturnPaymentStatus(selectedReturn.id, 'refunded')}
-                                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                                                onClick={() => handleUpdateReturnPaymentStatus(selectedReturn.id, 'paid')}
+                                                className="bg-green-600 hover:bg-green-700 text-white"
                                             >
-                                                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                                                Mark Refunded
+                                                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                                                Mark Paid
                                             </Button>
                                         </div>
                                     )}
@@ -702,8 +703,9 @@ export default function PurchasesPage() {
                     className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="">All Payment Statuses</option>
-                    <option value="pending">Unpaid</option>
+                    <option value="unpaid">Unpaid</option>
                     <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
                 </select>
                 <Button variant="outline" onClick={loadData} title="Refresh">
                     <RefreshCw className="h-4 w-4" />

@@ -12,7 +12,7 @@ export interface ApiPurchaseItem {
     selling_price: number;
     mrp?: number | null;
     total: number;
-    returned_quantity?: number;
+    returned_quantity: number;
     batch_number?: string | null;
     manufacture_date?: string | null;
     expiry_date?: string | null;
@@ -26,7 +26,7 @@ export interface ApiPurchase {
     supplier_id: string;
     purchase_number: string;
     status: 'pending' | 'received' | 'cancelled';
-    payment_status: 'pending' | 'paid';
+    payment_status: 'unpaid' | 'paid' | 'partial';
     subtotal: number;
     discount: number;
     tax: number;
@@ -49,7 +49,7 @@ export interface ApiPurchaseReturn {
     supplier_id: string;
     return_number: string;
     status: 'pending' | 'completed' | 'cancelled';
-    payment_status: 'pending' | 'refunded';
+    payment_status: 'unpaid' | 'paid';
     reason: string | null;
     total: number;
     created_at: string;
@@ -76,7 +76,7 @@ export interface CreatePurchasePayload {
     supplier_id: string;
     purchase_number: string;
     status?: 'pending' | 'received';
-    payment_status?: 'pending' | 'paid';
+    payment_status?: 'unpaid' | 'paid' | 'partial';
     subtotal: number;
     discount?: number;
     tax?: number;
@@ -118,7 +118,7 @@ export const purchaseApi = {
         return res.data;
     },
 
-    updatePaymentStatus: async (id: string, payment_status: 'pending' | 'paid') => {
+    updatePaymentStatus: async (id: string, payment_status: 'unpaid' | 'paid' | 'partial') => {
         const res = await api.put<ApiPurchase>(`/purchases/${id}`, { payment_status });
         return res.data;
     },
@@ -162,7 +162,7 @@ export const purchaseReturnApi = {
         return res.data;
     },
 
-    updatePaymentStatus: async (id: string, payment_status: 'pending' | 'refunded') => {
+    updatePaymentStatus: async (id: string, payment_status: 'unpaid' | 'paid') => {
         const res = await api.put<ApiPurchaseReturn>(`/purchase-returns/${id}`, { payment_status });
         return res.data;
     },
