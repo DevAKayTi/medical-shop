@@ -43,6 +43,7 @@ export default function POSPage() {
     const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "bank_transfer" | "wallet">("cash");
     const [notes, setNotes] = useState("");
     const [showNotes, setShowNotes] = useState(false);
+    const [activeTab, setActiveTab] = useState<"products" | "cart">("products");
 
     const [submitting, setSubmitting] = useState(false);
     const [lastSale, setLastSale] = useState<ApiSale | null>(null);
@@ -101,7 +102,7 @@ export default function POSPage() {
             });
             setActiveSession(session);
         } catch (err: any) {
-            alert(err.response?.data?.message || "Failed to start shift.");
+            toast.error(err.response?.data?.message || "Failed to start shift.");
         } finally {
             setStartingShift(false);
         }
@@ -121,7 +122,7 @@ export default function POSPage() {
             setShiftNotes("");
             loadData(); // Will set activeSession to null
         } catch (err: any) {
-            alert(err.response?.data?.message || "Failed to close shift.");
+            toast.error(err.response?.data?.message || "Failed to close shift.");
         } finally {
             setClosingShift(false);
         }
@@ -215,7 +216,7 @@ export default function POSPage() {
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
-        if (paid < grandTotal) { alert("Amount paid is less than the total!"); return; }
+        if (paid < grandTotal) { toast.error("Amount paid is less than the total!"); return; }
         setSubmitting(true);
         try {
             const payload: CreateSalePayload = {
@@ -254,7 +255,7 @@ export default function POSPage() {
             const updated = await productApi.list();
             setProducts(updated);
         } catch (e: any) {
-            alert(e?.response?.data?.message || "Checkout failed. Please try again.");
+            toast.error(e?.response?.data?.message || "Checkout failed. Please try again.");
         } finally {
             setSubmitting(false);
         }
@@ -385,7 +386,7 @@ export default function POSPage() {
     // ─── POS UI ────────────────────────────────────────────────────────
 
     return (
-        <div className="flex flex-col xl:flex-row gap-4 h-full animate-in fade-in duration-400" style={{ minHeight: "calc(100vh - 8rem)" }}>
+        <div className="flex flex-col xl:flex-row gap-4 h-[calc(100vh-8rem)] xl:h-auto animate-in fade-in duration-400 group/pos">
 
             {showCloseModal && activeSession && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -456,7 +457,7 @@ export default function POSPage() {
             )}
 
             {/* LEFT: product grid */}
-            <div className="flex-1 flex flex-col gap-4 min-h-0">
+            <div className={`flex-1 flex flex-col gap-4 min-h-0 ${activeTab === "cart" ? "hidden xl:flex" : "flex"}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Point of Sale</h1>
@@ -500,8 +501,8 @@ export default function POSPage() {
                                             key={p.id}
                                             onClick={() => addToCart(p)}
                                             className={`border rounded-xl p-3 cursor-pointer transition-all duration-150 flex flex-col justify-between h-28 select-none ${isOutOfStock
-                                                    ? "opacity-50 grayscale border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 cursor-not-allowed"
-                                                    : "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500/50 active:scale-95 bg-white dark:bg-slate-900 dark:border-slate-800"
+                                                ? "opacity-50 grayscale border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 cursor-not-allowed"
+                                                : "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500/50 active:scale-95 bg-white dark:bg-slate-900 dark:border-slate-800"
                                                 }`}
                                         >
                                             <div>
@@ -511,8 +512,8 @@ export default function POSPage() {
                                             <div className="flex justify-between items-center mt-2">
                                                 <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(Number(p.selling_price || p.mrp))}</span>
                                                 <span className={`text-xs px-1.5 py-0.5 rounded border ${isOutOfStock
-                                                        ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
-                                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:border-slate-700"
+                                                    ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
+                                                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:border-slate-700"
                                                     }`}>
                                                     {isOutOfStock ? "Out of Stock" : stock}
                                                 </span>
@@ -532,7 +533,7 @@ export default function POSPage() {
             </div>
 
             {/* RIGHT: cart & payment */}
-            <div className="w-full xl:w-96 flex flex-col gap-4 shrink-0">
+            <div className={`w-full xl:w-96 flex flex-col gap-4 shrink-0 ${activeTab === "products" ? "hidden xl:flex" : "flex"}`}>
                 <Card className="flex-1 flex flex-col overflow-hidden">
                     <CardHeader className="py-3 px-4 bg-slate-50 border-b dark:bg-slate-900/50 dark:border-slate-800 shrink-0">
                         <div className="flex items-center justify-between">
@@ -689,6 +690,56 @@ export default function POSPage() {
                     </div>
                 </Card>
             </div>
+
+            {/* Mobile Bottom Bar */}
+            <div className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-950 border-t dark:border-slate-800 p-2 shadow-lg flex items-center justify-between gap-2 h-16 px-4">
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-none">Total</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                        {formatCurrency(grandTotal)}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setActiveTab(activeTab === "products" ? "cart" : "products")}
+                        className={`relative flex items-center gap-2 h-11 px-6 rounded-lg font-bold transition-all ${activeTab === "products"
+                                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95"
+                                : "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                            }`}
+                    >
+                        {activeTab === "products" ? (
+                            <>
+                                <ShoppingCart className="h-4 w-4" />
+                                <span>Go to Cart</span>
+                                {cart.length > 0 && (
+                                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] h-5 w-5 rounded-full flex items-center justify-center font-bold border-2 border-white dark:border-slate-950">
+                                        {cart.length}
+                                    </span>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="h-4 w-4" />
+                                <span>Add Products</span>
+                            </>
+                        )}
+                    </button>
+
+                    {activeTab === "cart" && cart.length > 0 && paid >= grandTotal && (
+                        <Button
+                            onClick={handleCheckout}
+                            disabled={submitting}
+                            className="h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95"
+                        >
+                            {submitting ? "..." : "Checkout"}
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Safe area spacer for mobile bar */}
+            <div className="xl:hidden h-16 shrink-0" />
         </div>
     );
 }

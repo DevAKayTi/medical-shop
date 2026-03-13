@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { dashboardApi, DailyRevenueDetails, MonthlyRevenueDetails } from "@/lib/dashboard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
-import { Receipt, CalendarDays, TrendingUp } from "lucide-react";
+import { Receipt, CalendarDays, TrendingUp, Calendar, User } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { format } from "date-fns";
 import { ApiSale } from "@/lib/sales";
 import { formatCurrency } from "@/lib/currency";
@@ -12,6 +13,9 @@ export default function RevenueDetailsPage() {
     const [monthlyData, setMonthlyData] = useState<MonthlyRevenueDetails | null>(null);
     const [loadingDaily, setLoadingDaily] = useState(true);
     const [loadingMonthly, setLoadingMonthly] = useState(true);
+
+    const [selectedSale, setSelectedSale] = useState<ApiSale | null>(null);
+    const [showDetails, setShowDetails] = useState(false);
 
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [selectedMonth, setSelectedMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
@@ -148,37 +152,21 @@ export default function RevenueDetailsPage() {
                                             {dailyData.sales.map((sale: ApiSale) => {
                                                 const isRefund = Number(sale.total) < 0;
                                                 return (
-                                                    <React.Fragment key={sale.id}>
-                                                        <tr className="bg-slate-50 dark:bg-slate-800/50 border-t-2 border-slate-200 dark:border-slate-800">
-                                                            <td className="px-4 py-3 whitespace-nowrap">{format(new Date(sale.sold_at), 'hh:mm a')}</td>
-                                                            <td className="px-4 py-3 whitespace-nowrap font-medium text-blue-600 dark:text-blue-400">
-                                                                {sale.invoice_number}
-                                                                {isRefund && <span className="ml-2 text-xs text-red-500 font-normal border border-red-200 bg-red-50 dark:bg-red-900/20 px-1 rounded">(Refund)</span>}
-                                                            </td>
-                                                            <td className="px-4 py-3 whitespace-nowrap">{sale.customer?.name || "Walk-In"}</td>
-                                                            <td className={`px-4 py-3 whitespace-nowrap text-right font-medium ${isRefund ? 'text-red-500' : ''}`}>
-                                                                {isRefund ? '-' : ''}{formatCurrency(Math.abs(Number(sale.total)))}
-                                                            </td>
-                                                        </tr>
-                                                        {sale.items && sale.items.map((item, idx) => {
-                                                            const itemTotal = Number(item.total);
-                                                            const isItemRefund = itemTotal < 0;
-                                                            return (
-                                                                <tr key={`${sale.id}-item-${idx}`} className="text-sm bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                                                    <td className="px-4 py-2 border-l-2 border-slate-200 dark:border-slate-800 pl-8" colSpan={2}>
-                                                                        {item.product?.name || `Product #${item.product_id?.slice(0, 8)}`}
-                                                                        <span className="text-slate-400 ml-2">x {Math.abs(Number(item.quantity))}</span>
-                                                                    </td>
-                                                                    <td className="px-4 py-2 text-slate-500">
-                                                                        @ {formatCurrency(Number(item.unit_price))}
-                                                                    </td>
-                                                                    <td className={`px-4 py-2 text-right ${isItemRefund ? 'text-red-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                                                                        {isItemRefund ? '-' : ''}{formatCurrency(Math.abs(itemTotal))}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </React.Fragment>
+                                                    <tr
+                                                        key={sale.id}
+                                                        onClick={() => { setSelectedSale(sale); setShowDetails(true); }}
+                                                        className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 border-t-2 border-slate-200 dark:border-slate-800 cursor-pointer transition-colors"
+                                                    >
+                                                        <td className="px-4 py-3 whitespace-nowrap">{format(new Date(sale.sold_at || sale.created_at), 'hh:mm a')}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap font-medium text-blue-600 dark:text-blue-400">
+                                                            {sale.invoice_number}
+                                                            {isRefund && <span className="ml-2 text-xs text-red-500 font-normal border border-red-200 bg-red-50 dark:bg-red-900/20 px-1 rounded">(Refund)</span>}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap">{sale.customer?.name || "Walk-In"}</td>
+                                                        <td className={`px-4 py-3 whitespace-nowrap text-right font-medium ${isRefund ? 'text-red-500' : ''}`}>
+                                                            {isRefund ? '-' : ''}{formatCurrency(Math.abs(Number(sale.total)))}
+                                                        </td>
+                                                    </tr>
                                                 );
                                             })}
                                         </tbody>
@@ -298,6 +286,103 @@ export default function RevenueDetailsPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* View Details Modal for Daily View */}
+            {showDetails && selectedSale && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <Card className="w-full max-w-2xl shadow-xl flex flex-col max-h-[90vh]">
+                        <CardHeader className="flex flex-row items-center justify-between border-b dark:border-slate-800">
+                            <div>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <Receipt className="h-5 w-5 text-blue-500" />
+                                    Invoice {selectedSale.invoice_number}
+                                </CardTitle>
+                                <p className="text-sm text-slate-500 mt-1 flex items-center gap-4">
+                                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {format(new Date(selectedSale.sold_at || selectedSale.created_at), 'PPp')}</span>
+                                    <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> {selectedSale.cashier?.name || 'Unknown'}</span>
+                                </p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => setShowDetails(false)}>
+                                <span className="sr-only">Close</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x h-5 w-5"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            </Button>
+                        </CardHeader>
+
+                        <CardContent className="overflow-y-auto p-6 space-y-6">
+                            <div className="flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <div>
+                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Customer Details</h4>
+                                    {selectedSale.customer ? (
+                                        <>
+                                            <p className="font-medium text-slate-900 dark:text-slate-100">{selectedSale.customer.name}</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-400">{selectedSale.customer.phone || 'No phone'}</p>
+                                        </>
+                                    ) : (
+                                        <p className="text-sm text-slate-500 italic">Walk-in Customer</p>
+                                    )}
+                                </div>
+                                <div className="text-right">
+                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Status</h4>
+                                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border capitalize bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                                        {selectedSale.status}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-3 border-b pb-2 dark:border-slate-800">Order Items</h3>
+                                <table className="w-full text-sm">
+                                    <thead className="text-slate-500 dark:text-slate-400 border-b dark:border-slate-800 text-left">
+                                        <tr>
+                                            <th className="font-medium py-2">Item</th>
+                                            <th className="font-medium py-2 text-right">Qty</th>
+                                            <th className="font-medium py-2 text-right">Price</th>
+                                            <th className="font-medium py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                        {selectedSale.items?.map((item: any, i: number) => (
+                                            <tr key={i}>
+                                                <td className="py-2.5">
+                                                    <p className="font-medium text-slate-900 dark:text-slate-100">{item.product?.name || "Unknown Product"}</p>
+                                                    {item.batch && <p className="text-xs text-slate-500">Batch: {item.batch.batch_number}</p>}
+                                                </td>
+                                                <td className="py-2.5 text-right">{Math.abs(Number(item.quantity))}</td>
+                                                <td className="py-2.5 text-right">{formatCurrency(Number(item.unit_price))}</td>
+                                                <td className="py-2.5 text-right font-medium">{formatCurrency(Math.abs(Number(item.total)))}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot className="border-t-2 dark:border-slate-800">
+                                        <tr>
+                                            <th colSpan={3} className="py-2 text-right text-slate-500 font-normal">Subtotal</th>
+                                            <td className="py-2 text-right">{formatCurrency(Math.abs(Number(selectedSale.subtotal)))}</td>
+                                        </tr>
+                                        {Number(selectedSale.discount) > 0 && (
+                                            <tr>
+                                                <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Discount</th>
+                                                <td className="py-1 text-right text-red-500">-{formatCurrency(Number(selectedSale.discount))}</td>
+                                            </tr>
+                                        )}
+                                        {Number(selectedSale.tax) > 0 && (
+                                            <tr>
+                                                <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Tax</th>
+                                                <td className="py-1 text-right">{formatCurrency(Number(selectedSale.tax))}</td>
+                                            </tr>
+                                        )}
+                                        <tr>
+                                            <th colSpan={3} className="py-3 text-right font-bold text-slate-900 dark:text-slate-100 uppercase text-xs tracking-wider">Total</th>
+                                            <td className="py-3 text-right font-bold text-lg text-slate-900 dark:text-slate-100">
+                                                {Number(selectedSale.total) < 0 ? '-' : ''}{formatCurrency(Math.abs(Number(selectedSale.total)))}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
     );
 }

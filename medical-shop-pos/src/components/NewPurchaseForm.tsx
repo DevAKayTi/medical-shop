@@ -102,7 +102,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
         setValue,
         formState: { errors, isSubmitting },
     } = useForm<FormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: {
             supplier_id: "",
             purchase_number: generatePurchaseNumber(),
@@ -115,7 +115,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
         },
     });
 
-    const { fields, append, remove, update } = useFieldArray({ control, name: "items" });
+    const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
     const [productSearch, setProductSearch] = useState("");
     const watchedItems = watch("items");
@@ -163,7 +163,6 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
     }, [JSON.stringify(watchedItems?.map(i => [i.purchase_price, i.quantity]))]);
 
     const handleBatchModeSwitch = (idx: number, mode: "new" | "existing") => {
-        const current = watchedItems[idx];
         if (mode === "existing") {
             setValue(`items.${idx}.selectedBatchMode`, "existing" as any);
             setValue(`items.${idx}.batch_number`, "");
@@ -228,7 +227,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
         itemErrors?.[idx]?.[field]?.message;
 
     return (
-        <form onSubmit={handleSubmit(processSubmit)} className="space-y-6 animate-in slide-in-from-top-4 duration-300" noValidate>
+        <form onSubmit={handleSubmit(processSubmit as any)} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300" noValidate>
 
             {/* ── Header ── */}
             <Card>

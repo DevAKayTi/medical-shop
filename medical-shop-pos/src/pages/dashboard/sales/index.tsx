@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { saleApi, ApiSale } from "@/lib/sales";
 import { storageLib } from "@/lib/storage";
-import { formatCurrency } from "@/lib/currency";
+import { authLib } from "@/lib/auth";
+import { useConfirm } from "@/hooks/useConfirm";
+import { formatCurrency, formatNumber } from "@/lib/currency";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -21,6 +23,7 @@ export default function SalesHistoryPage() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [ConfirmDialog, confirm] = useConfirm();
 
     // Filters
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -29,10 +32,10 @@ export default function SalesHistoryPage() {
     // Selection for Details Modal
     const [selectedSale, setSelectedSale] = useState<ApiSale | null>(null);
     const [showDetails, setShowDetails] = useState(false);
+    const [loadingDetails, setLoadingDetails] = useState(false);
 
     // Auth check for Voiding
-    const userRole = storageLib.getAuthUser()?.role;
-    const canVoid = userRole === "Admin" || userRole === "Manager";
+    const canVoid = authLib.hasPermission('void-sales');
 
     const loadSales = async () => {
         setLoading(true);
@@ -79,18 +82,36 @@ export default function SalesHistoryPage() {
     }, [searchInvoice]);
 
     const handleVoidSale = async (id: string) => {
-        if (!window.confirm("Are you sure you want to void this sale? This action will return items to stock and adjust shift session totals.")) {
-            return;
-        }
+        const isConfirmed = await confirm({
+            title: "Void Sale?",
+            description: "Are you sure you want to void this sale? This action will return items to stock and adjust shift session totals.",
+            confirmText: "Yes, Void Sale",
+            variant: "destructive"
+        });
+        if (!isConfirmed) return;
 
         try {
             await saleApi.void(id);
-            setSales(sales.map(s => s.id === id ? { ...s, status: "refunded" } : s));
+            await loadSales(); // Re-fetch all sales from the backend
             if (selectedSale?.id === id) {
                 setSelectedSale({ ...selectedSale, status: "refunded" });
             }
         } catch (err: any) {
             alert(err.response?.data?.message || "Failed to void sale.");
+        }
+    };
+
+    const handleViewDetails = async (id: string, cachedSale: ApiSale) => {
+        setSelectedSale(cachedSale); // Show cached info immediately
+        setShowDetails(true);
+        setLoadingDetails(true);
+        try {
+            const data = await saleApi.get(id);
+            setSelectedSale(data); // Overwrite with full data (including nested items/payments)
+        } catch (error) {
+            console.error("Failed to load sale details", error);
+        } finally {
+            setLoadingDetails(false);
         }
     };
 
@@ -106,10 +127,9 @@ export default function SalesHistoryPage() {
             case "completed":
                 return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50";
             case "returned":
-                return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/50";
             case "refunded":
             case "voided":
-                return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800/50";
+                return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/50";
             default:
                 return "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700";
         }
@@ -141,7 +161,7 @@ export default function SalesHistoryPage() {
                     </div>
 
                     <div className="flex bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-1 w-fit mt-2 sm:mt-0 flex-wrap">
-                        {["all", "completed", "returned", "refunded"].map(s => (
+                        {["all", "completed", "returned"].map(s => (
                             <button
                                 key={s}
                                 onClick={() => { setStatusFilter(s); setPage(1); }}
@@ -161,7 +181,7 @@ export default function SalesHistoryPage() {
                                 <th className="px-5 py-3 font-medium">Date & Time</th>
                                 <th className="px-5 py-3 font-medium">Customer</th>
                                 <th className="px-5 py-3 font-medium">Cashier</th>
-                                <th className="px-5 py-3 font-medium text-right">Total</th>
+                                <th className="px-5 py-3 font-medium text-right">Total (MMK)</th>
                                 <th className="px-5 py-3 font-medium text-center">Status</th>
                                 <th className="px-5 py-3 font-medium text-right">Actions</th>
                             </tr>
@@ -205,11 +225,11 @@ export default function SalesHistoryPage() {
                                             {sale.cashier?.name || "Unknown"}
                                         </td>
                                         <td className="px-5 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
-                                            {formatCurrency(Number(sale.total))}
+                                            {formatNumber(Number(sale.total))}
                                         </td>
                                         <td className="px-5 py-4 text-center">
                                             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border capitalize ${getStatusStyles(sale.status)}`}>
-                                                {sale.status}
+                                                {sale.status === "refunded" ? "returned" : sale.status}
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-right">
@@ -217,7 +237,7 @@ export default function SalesHistoryPage() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    onClick={() => { setSelectedSale(sale); setShowDetails(true); }}
+                                                    onClick={() => handleViewDetails(sale.id, sale)}
                                                     className="h-8"
                                                 >
                                                     <Eye className="h-3.5 w-3.5 mr-1" /> View
@@ -291,7 +311,12 @@ export default function SalesHistoryPage() {
                             </Button>
                         </CardHeader>
 
-                        <CardContent className="overflow-y-auto p-6 space-y-6">
+                        <CardContent className="overflow-y-auto p-6 space-y-6 relative">
+                            {loadingDetails && (
+                                <div className="absolute inset-0 z-10 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center backdrop-blur-[1px]">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-400 border-t-blue-600"></div>
+                                </div>
+                            )}
                             <div className="flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
                                 <div>
                                     <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Customer Details</h4>
@@ -307,7 +332,7 @@ export default function SalesHistoryPage() {
                                 <div className="text-right">
                                     <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Status</h4>
                                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border capitalize ${getStatusStyles(selectedSale.status)}`}>
-                                        {selectedSale.status}
+                                        {selectedSale.status === "refunded" ? "returned" : selectedSale.status}
                                     </span>
                                 </div>
                             </div>
@@ -386,6 +411,8 @@ export default function SalesHistoryPage() {
                     </Card>
                 </div>
             )}
+
+            <ConfirmDialog />
         </div>
     );
 }

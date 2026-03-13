@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
+import { authLib } from "@/lib/auth";
 import { formatNumber, getCurrencySymbol } from "@/lib/currency";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
     ApiProduct, ApiCategory, ApiSupplier, ApiProductBatch, ApiStockAdjustment, ApiInventoryLedger,
     productApi, categoryApi, supplierApi, adjustmentApi, ledgerApi
@@ -25,6 +27,7 @@ type TabType = "products" | "batches" | "categories" | "suppliers" | "adjustment
 
 export default function InventoryPage() {
     const toast = useToast();
+    const [ConfirmDialog, confirm] = useConfirm();
     const [activeTab, setActiveTab] = useState<TabType>("products");
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -102,7 +105,13 @@ export default function InventoryPage() {
     };
 
     const handleDeleteProduct = async (id: string) => {
-        if (confirm("Delete this product and all its history?")) {
+        const isConfirmed = await confirm({
+            title: "Delete Product?",
+            description: "Delete this product and all its history? This action cannot be undone.",
+            confirmText: "Yes, Delete Product",
+            variant: "destructive"
+        });
+        if (isConfirmed) {
             try {
                 await productApi.delete(id);
                 setProducts(prev => prev.filter(p => p.id !== id));
@@ -119,7 +128,12 @@ export default function InventoryPage() {
 
     const handleToggleCategoryStatus = async (category: ApiCategory) => {
         const newStatus = !category.is_active;
-        if (confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this category?`)) {
+        const isConfirmed = await confirm({
+            title: `${newStatus ? 'Activate' : 'Deactivate'} Category?`,
+            description: `Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this category?`,
+            confirmText: `Yes, ${newStatus ? 'Activate' : 'Deactivate'} Category`
+        });
+        if (isConfirmed) {
             try {
                 await categoryApi.update(category.id, { is_active: newStatus });
                 setCategories(categories.map(c => c.id === category.id ? { ...c, is_active: newStatus } : c));
@@ -132,7 +146,12 @@ export default function InventoryPage() {
 
     const handleToggleSupplierStatus = async (supplier: ApiSupplier) => {
         const newStatus = !supplier.is_active;
-        if (confirm(`Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this supplier?`)) {
+        const isConfirmed = await confirm({
+            title: `${newStatus ? 'Activate' : 'Deactivate'} Supplier?`,
+            description: `Are you sure you want to ${newStatus ? 'activate' : 'deactivate'} this supplier?`,
+            confirmText: `Yes, ${newStatus ? 'Activate' : 'Deactivate'} Supplier`
+        });
+        if (isConfirmed) {
             await supplierApi.update(supplier.id, { is_active: newStatus });
             setSuppliers(suppliers.map(s => s.id === supplier.id ? { ...s, is_active: newStatus } : s));
         }
@@ -168,36 +187,37 @@ export default function InventoryPage() {
                         Manage products, stock levels, categories and audit trails.
                     </p>
                 </div>
-                {!isFormOpen && (activeTab === "products" || activeTab === "categories") && (
+                {!isFormOpen && (activeTab === "products" || activeTab === "categories") && authLib.hasPermission('create-catalog') && (
                     <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }} className="flex-shrink-0">
                         <Plus className="mr-2 h-4 w-4" /> Add {activeTab === "products" ? "Product" : "Category"}
                     </Button>
                 )}
-                {activeTab === "suppliers" && (
+                {activeTab === "suppliers" && authLib.hasPermission('create-suppliers') && (
                     <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }} className="flex-shrink-0">
                         <Plus className="mr-2 h-4 w-4" /> Add Supplier
                     </Button>
                 )}
-                {activeTab === "adjustments" && (
+                {activeTab === "adjustments" && authLib.hasPermission('adjust-stock') && (
                     <Button onClick={() => setIsFormOpen(true)} className="flex-shrink-0">
                         <ArrowRightLeft className="mr-2 h-4 w-4" /> New Adjustment
                     </Button>
                 )}
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800">
+            {/* Tab Navigation - scrollable on mobile */}
+            <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 scrollbar-none -mx-1 px-1">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => { setActiveTab(tab.id as TabType); setIsFormOpen(false); }}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === tab.id
+                        className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
                             ? "border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
                             : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                             }`}
                     >
                         <tab.icon className="h-4 w-4" />
-                        {tab.name}
+                        <span className="hidden sm:inline">{tab.name}</span>
+                        <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
                     </button>
                 ))}
             </div>
@@ -287,61 +307,104 @@ export default function InventoryPage() {
                                     ) : filteredProducts.length === 0 ? (
                                         <div className="py-10 text-center text-slate-500">No products found.</div>
                                     ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm text-left">
-                                                <thead className="text-xs uppercase bg-slate-50 text-slate-500 dark:bg-slate-900/50">
-                                                    <tr>
-                                                        <th className="px-4 py-3 font-medium">Name / Generic</th>
-                                                        <th className="px-4 py-3 font-medium">Category / Type</th>
-                                                        <th className="px-4 py-3 font-medium text-right">Selling Price ({getCurrencySymbol()})</th>
-                                                        <th className="px-4 py-3 font-medium text-right">In Stock</th>
-                                                        <th className="px-4 py-3 font-medium text-center">Status</th>
-                                                        <th className="px-4 py-3 font-medium text-center">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                                                    {filteredProducts.map(p => (
-                                                        <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                                                            <td className="px-4 py-3">
-                                                                <div className="font-medium text-slate-900 dark:text-slate-100">{p.name}</div>
-                                                                <div className="text-xs text-slate-500 italic mt-0.5">{p.generic_name || "—"}</div>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <div className="text-slate-600 dark:text-slate-400">{p.category?.name || "Uncategorized"}</div>
-                                                                <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1">{p.medicine_type || "N/A"}</div>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-right font-medium text-slate-700 dark:text-slate-300">
-                                                                {getSellingPriceRange(p)}
-                                                            </td>
-                                                            <td className="px-4 py-3 text-right">
-                                                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${calculateStock(p) < 10 ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"
-                                                                    }`}>
-                                                                    {calculateStock(p)}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${p.is_active ? "text-emerald-700 bg-emerald-100" : "text-slate-500 bg-slate-100"}`}>
-                                                                    {p.is_active ? "Active" : "Inactive"}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-3 text-center">
-                                                                <div className="flex justify-center space-x-1">
-                                                                    <Button variant="ghost" size="icon" title="View Batches" onClick={() => handleViewBatches(p.id)}>
-                                                                        <Package className="h-4 w-4 text-emerald-500" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="icon" onClick={() => handleEditProduct(p)}>
-                                                                        <Edit className="h-4 w-4 text-blue-500" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)}>
-                                                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                                                    </Button>
-                                                                </div>
-                                                            </td>
+                                        <>
+                                            {/* Mobile card view */}
+                                            <div className="md:hidden space-y-3">
+                                                {filteredProducts.map(p => (
+                                                    <div key={p.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-2">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div>
+                                                                <p className="font-medium text-slate-900 dark:text-slate-100">{p.name}</p>
+                                                                <p className="text-xs text-slate-500 italic">{p.generic_name || "—"}</p>
+                                                            </div>
+                                                            <span className={`flex-shrink-0 inline-flex px-2 py-0.5 rounded text-xs font-bold ${p.is_active ? "text-emerald-700 bg-emerald-100" : "text-slate-500 bg-slate-100"}`}>
+                                                                {p.is_active ? "Active" : "Inactive"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                                            <span>Category: <span className="text-slate-700 dark:text-slate-300">{p.category?.name || "Uncategorized"}</span></span>
+                                                            <span>Price: <span className="font-medium text-slate-700 dark:text-slate-300">{getSellingPriceRange(p)} {getCurrencySymbol()}</span></span>
+                                                            <span>Stock: <span className={`font-bold ${calculateStock(p) < 10 ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}>{calculateStock(p)}</span></span>
+                                                        </div>
+                                                        <div className="flex gap-2 pt-1">
+                                                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewBatches(p.id)}>
+                                                                <Package className="h-3 w-3 mr-1 text-emerald-500" /> Batches
+                                                            </Button>
+                                                            {authLib.hasPermission('update-catalog') && (
+                                                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleEditProduct(p)}>
+                                                                    <Edit className="h-3 w-3 mr-1 text-blue-500" /> Edit
+                                                                </Button>
+                                                            )}
+                                                            {authLib.hasPermission('delete-catalog') && (
+                                                                <Button variant="outline" size="sm" className="h-7 text-xs text-red-500 hover:text-red-600" onClick={() => handleDeleteProduct(p.id)}>
+                                                                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {/* Desktop table view */}
+                                            <div className="hidden md:block overflow-x-auto">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="text-xs uppercase bg-slate-50 text-slate-500 dark:bg-slate-900/50">
+                                                        <tr>
+                                                            <th className="px-4 py-3 font-medium">Name / Generic</th>
+                                                            <th className="px-4 py-3 font-medium">Category / Type</th>
+                                                            <th className="px-4 py-3 font-medium text-right">Selling Price ({getCurrencySymbol()})</th>
+                                                            <th className="px-4 py-3 font-medium text-right">In Stock</th>
+                                                            <th className="px-4 py-3 font-medium text-center">Status</th>
+                                                            <th className="px-4 py-3 font-medium text-center">Actions</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                                        {filteredProducts.map(p => (
+                                                            <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                                                                <td className="px-4 py-3">
+                                                                    <div className="font-medium text-slate-900 dark:text-slate-100">{p.name}</div>
+                                                                    <div className="text-xs text-slate-500 italic mt-0.5">{p.generic_name || "—"}</div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="text-slate-600 dark:text-slate-400">{p.category?.name || "Uncategorized"}</div>
+                                                                    <div className="text-[10px] uppercase font-semibold text-slate-400 mt-1">{p.medicine_type || "N/A"}</div>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-right font-medium text-slate-700 dark:text-slate-300">
+                                                                    {getSellingPriceRange(p)}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${calculateStock(p) < 10 ? "text-red-600 bg-red-100" : "text-slate-600 bg-slate-100"
+                                                                        }`}>
+                                                                        {calculateStock(p)}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center">
+                                                                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-bold ${p.is_active ? "text-emerald-700 bg-emerald-100" : "text-slate-500 bg-slate-100"}`}>
+                                                                        {p.is_active ? "Active" : "Inactive"}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-center">
+                                                                    <div className="flex justify-center space-x-1">
+                                                                        <Button variant="ghost" size="icon" title="View Batches" onClick={() => handleViewBatches(p.id)}>
+                                                                            <Package className="h-4 w-4 text-emerald-500" />
+                                                                        </Button>
+                                                                        {authLib.hasPermission('update-catalog') && (
+                                                                            <Button variant="ghost" size="icon" onClick={() => handleEditProduct(p)}>
+                                                                                <Edit className="h-4 w-4 text-blue-500" />
+                                                                            </Button>
+                                                                        )}
+                                                                        {authLib.hasPermission('delete-catalog') && (
+                                                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteProduct(p.id)}>
+                                                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                                                            </Button>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
@@ -375,12 +438,16 @@ export default function InventoryPage() {
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <div className="flex justify-center space-x-1">
-                                                                <Button variant="ghost" size="icon" onClick={() => handleToggleCategoryStatus(c)} title={c.is_active ? "Deactivate" : "Activate"} className={c.is_active ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600"}>
-                                                                    <Power className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button variant="ghost" size="icon" onClick={() => { setEditingItem(c); setIsFormOpen(true); }} title="Edit">
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Button>
+                                                                {authLib.hasPermission('update-catalog') && (
+                                                                    <>
+                                                                        <Button variant="ghost" size="icon" onClick={() => handleToggleCategoryStatus(c)} title={c.is_active ? "Deactivate" : "Activate"} className={c.is_active ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600"}>
+                                                                            <Power className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" onClick={() => { setEditingItem(c); setIsFormOpen(true); }} title="Edit">
+                                                                            <Edit className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -422,12 +489,16 @@ export default function InventoryPage() {
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <div className="flex justify-center space-x-1">
-                                                                <Button variant="ghost" size="icon" onClick={() => handleToggleSupplierStatus(s)} title={s.is_active ? "Deactivate" : "Activate"} className={s.is_active ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600"}>
-                                                                    <Power className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button variant="ghost" size="icon" onClick={() => { setEditingItem(s); setIsFormOpen(true); }} title="Edit">
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Button>
+                                                                {authLib.hasPermission('update-suppliers') && (
+                                                                    <>
+                                                                        <Button variant="ghost" size="icon" onClick={() => handleToggleSupplierStatus(s)} title={s.is_active ? "Deactivate" : "Activate"} className={s.is_active ? "text-amber-500 hover:text-amber-600" : "text-emerald-500 hover:text-emerald-600"}>
+                                                                            <Power className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" onClick={() => { setEditingItem(s); setIsFormOpen(true); }} title="Edit">
+                                                                            <Edit className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -592,6 +663,7 @@ export default function InventoryPage() {
                     </>
                 )}
             </div>
+            <ConfirmDialog />
         </div>
     );
 

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { ApiProduct, ApiCategory } from "@/lib/inventory";
 import { getCurrencySymbol } from "@/lib/currency";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/hooks/useConfirm";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface Props {
@@ -69,6 +70,7 @@ type ProductFormValues = z.infer<typeof productSchema>;
 export function ProductForm({ initialData, categories, onSubmit, onCancel }: Props) {
     const id = useId();
     const toast = useToast();
+    const [ConfirmDialog, confirm] = useConfirm();
 
     const {
         register,
@@ -78,7 +80,7 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
         clearErrors,
         formState: { errors, isSubmitting, isDirty, isSubmitSuccessful },
     } = useForm<ProductFormValues>({
-        resolver: zodResolver(productSchema),
+        resolver: zodResolver(productSchema) as any,
         defaultValues: {
             name: "",
             generic_name: "",
@@ -148,9 +150,15 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
         }
     };
 
-    const handleCancel = () => {
-        if (isDirty && !confirm("You have unsaved changes. Are you sure you want to cancel?")) {
-            return;
+    const handleCancel = async () => {
+        if (isDirty) {
+            const isConfirmed = await confirm({
+                title: "Unsaved Changes",
+                description: "You have unsaved changes. Are you sure you want to cancel?",
+                confirmText: "Yes, Cancel",
+                variant: "destructive"
+            });
+            if (!isConfirmed) return;
         }
         onCancel();
     };
@@ -171,7 +179,7 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
 
     return (
         <form
-            onSubmit={handleSubmit(onFormSubmit)}
+            onSubmit={handleSubmit(onFormSubmit as any)}
             className="group space-y-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950 transition-all duration-300"
             noValidate
         >
@@ -412,6 +420,8 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                     ) : initialData ? "Confirm Update" : "Create Product"}
                 </Button>
             </div>
+
+            <ConfirmDialog />
         </form>
     );
 }

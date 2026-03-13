@@ -12,6 +12,7 @@ export interface ApiPurchaseItem {
     selling_price: number;
     mrp?: number | null;
     total: number;
+    returned_quantity?: number;
     batch_number?: string | null;
     manufacture_date?: string | null;
     expiry_date?: string | null;
@@ -25,6 +26,7 @@ export interface ApiPurchase {
     supplier_id: string;
     purchase_number: string;
     status: 'pending' | 'received' | 'cancelled';
+    payment_status: 'pending' | 'paid';
     subtotal: number;
     discount: number;
     tax: number;
@@ -47,6 +49,7 @@ export interface ApiPurchaseReturn {
     supplier_id: string;
     return_number: string;
     status: 'pending' | 'completed' | 'cancelled';
+    payment_status: 'pending' | 'refunded';
     reason: string | null;
     total: number;
     created_at: string;
@@ -73,6 +76,7 @@ export interface CreatePurchasePayload {
     supplier_id: string;
     purchase_number: string;
     status?: 'pending' | 'received';
+    payment_status?: 'pending' | 'paid';
     subtotal: number;
     discount?: number;
     tax?: number;
@@ -113,6 +117,11 @@ export const purchaseApi = {
         const res = await api.put<ApiPurchase>(`/purchases/${id}`, { status: 'received', received_at: new Date().toISOString().split('T')[0] });
         return res.data;
     },
+
+    updatePaymentStatus: async (id: string, payment_status: 'pending' | 'paid') => {
+        const res = await api.put<ApiPurchase>(`/purchases/${id}`, { payment_status });
+        return res.data;
+    },
 };
 
 // ─── Purchase Return API ───────────────────────────────────────────────
@@ -150,6 +159,11 @@ export const purchaseReturnApi = {
 
     complete: async (id: string) => {
         const res = await api.post<ApiPurchaseReturn>(`/purchase-returns/${id}/complete`);
+        return res.data;
+    },
+
+    updatePaymentStatus: async (id: string, payment_status: 'pending' | 'refunded') => {
+        const res = await api.put<ApiPurchaseReturn>(`/purchase-returns/${id}`, { payment_status });
         return res.data;
     },
 };

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { formatCurrency } from "@/lib/currency";
 import { ApiCustomer, customerApi, CreateCustomerPayload, saleApi, ApiSale } from "@/lib/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +8,8 @@ import {
     Users, Star, TrendingUp, ShoppingBag
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/hooks/useConfirm";
+import { authLib } from "@/lib/auth";
 
 // ─── Customer Form ────────────────────────────────────────────────────────────
 
@@ -171,6 +172,7 @@ export default function CustomersPage() {
     const [loadingHistory, setLoadingHistory] = useState(false);
 
     const toast = useToast();
+    const [ConfirmDialog, confirm] = useConfirm();
 
     useEffect(() => { loadCustomers(); }, []);
 
@@ -200,7 +202,13 @@ export default function CustomersPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Delete this customer? Their sales history will be preserved.")) return;
+        const isConfirmed = await confirm({
+            title: "Delete Customer?",
+            description: "Delete this customer? Their sales history will be preserved.",
+            confirmText: "Yes, Delete",
+            variant: "destructive"
+        });
+        if (!isConfirmed) return;
         try {
             await customerApi.delete(id);
             toast.success("Customer deleted.");
@@ -253,9 +261,11 @@ export default function CustomersPage() {
                             Total spent: <span className="font-medium text-emerald-600">{Number(viewingCustomer.total_spent).toFixed(2)}</span>
                         </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => { setEditingCustomer(viewingCustomer); setIsFormOpen(true); setViewingCustomer(null); }}>
-                        <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                    </Button>
+                    {authLib.hasPermission('update-customers') && (
+                        <Button variant="outline" size="sm" onClick={() => { setEditingCustomer(viewingCustomer); setIsFormOpen(true); setViewingCustomer(null); }}>
+                            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                        </Button>
+                    )}
                 </div>
                 <Card>
                     <CardHeader><CardTitle className="text-base">Purchase History ({customerSales.length})</CardTitle></CardHeader>
@@ -303,7 +313,7 @@ export default function CustomersPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Customers</h1>
                     <p className="text-slate-500 dark:text-slate-400">Manage your customer directory and purchase history.</p>
                 </div>
-                {!isFormOpen && (
+                {!isFormOpen && authLib.hasPermission('create-customers') && (
                     <Button onClick={() => { setEditingCustomer(undefined); setIsFormOpen(true); }}>
                         <Plus className="mr-2 h-4 w-4" /> Add Customer
                     </Button>
@@ -400,12 +410,16 @@ export default function CustomersPage() {
                                                         <Button variant="ghost" size="icon" title="Purchase History" onClick={() => openHistory(customer)}>
                                                             <History className="h-4 w-4 text-emerald-500" />
                                                         </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => { setEditingCustomer(customer); setIsFormOpen(true); }}>
-                                                            <Edit className="h-4 w-4 text-blue-500" />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(customer.id)}>
-                                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                                        </Button>
+                                                        {authLib.hasPermission('update-customers') && (
+                                                            <Button variant="ghost" size="icon" onClick={() => { setEditingCustomer(customer); setIsFormOpen(true); }}>
+                                                                <Edit className="h-4 w-4 text-blue-500" />
+                                                            </Button>
+                                                        )}
+                                                        {authLib.hasPermission('delete-customers') && (
+                                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(customer.id)}>
+                                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -417,6 +431,8 @@ export default function CustomersPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <ConfirmDialog />
         </div>
     );
 }

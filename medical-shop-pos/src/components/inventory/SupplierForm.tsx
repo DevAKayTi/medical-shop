@@ -31,7 +31,7 @@ export function SupplierForm({ onSubmit, onCancel, initialData }: Props) {
         handleSubmit,
         formState: { errors, isSubmitting },
     } = useForm<SupplierFormValues>({
-        resolver: zodResolver(supplierSchema),
+        resolver: zodResolver(supplierSchema) as any,
         defaultValues: {
             name: initialData?.name ?? "",
             contact_person: initialData?.contact_person ?? "",
@@ -70,7 +70,7 @@ export function SupplierForm({ onSubmit, onCancel, initialData }: Props) {
     };
 
     return (
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+        <form onSubmit={handleSubmit(onFormSubmit as any)} className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
             <h3 className="text-base font-semibold">{initialData ? "Edit Supplier" : "New Supplier"}</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1">

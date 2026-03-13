@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const registerSchema = z.object({
     name: z.string().min(1, "Register name is required."),
@@ -98,6 +99,7 @@ export default function RegistersPage() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingRegister, setEditingRegister] = useState<ApiCashRegister | undefined>(undefined);
     const toast = useToast();
+    const [ConfirmDialog, confirm] = useConfirm();
 
     useEffect(() => {
         loadRegisters();
@@ -129,7 +131,13 @@ export default function RegistersPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Delete this cash register? This cannot be undone.")) return;
+        const isConfirmed = await confirm({
+            title: "Delete Register?",
+            description: "Delete this cash register? This cannot be undone.",
+            confirmText: "Yes, Delete Register",
+            variant: "destructive"
+        });
+        if (!isConfirmed) return;
         try {
             await registerApi.delete(id);
             toast.success("Register deleted.");
@@ -240,6 +248,8 @@ export default function RegistersPage() {
                     </table>
                 </div>
             </Card>
+
+            <ConfirmDialog />
         </div>
     );
 }

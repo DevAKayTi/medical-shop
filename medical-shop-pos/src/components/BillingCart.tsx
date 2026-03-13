@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Product, SaleItem, ShopSettings, storageLib } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
 import { Trash2, Plus, Minus } from "lucide-react";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface BillingCartProps {
     cart: SaleItem[];
@@ -16,6 +17,7 @@ export function BillingCart({ cart, onUpdateCart, onCheckout, products }: Billin
         taxRate: 5.0,
         currencySymbol: "$"
     });
+    const toast = useToast();
 
     useEffect(() => {
         const s = storageLib.getItem<ShopSettings>("shop_settings");
@@ -41,7 +43,7 @@ export function BillingCart({ cart, onUpdateCart, onCheckout, products }: Billin
             newCart.splice(index, 1);
             onUpdateCart(newCart);
         } else {
-            alert(`Cannot add more than available stock (${product.quantity})`);
+            toast.error(`Cannot add more than available stock (${product.quantity})`);
         }
     };
 

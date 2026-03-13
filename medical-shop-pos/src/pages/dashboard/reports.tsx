@@ -88,17 +88,19 @@ function DateFilter({
     onApply: () => void; loading: boolean;
 }) {
     return (
-        <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">From:</label>
-                <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={dateInputCls} />
-            </div>
-            <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">To:</label>
-                <input type="date" value={to} onChange={e => setTo(e.target.value)} className={dateInputCls} />
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">From:</label>
+                    <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={dateInputCls} />
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">To:</label>
+                    <input type="date" value={to} onChange={e => setTo(e.target.value)} className={dateInputCls} />
+                </div>
             </div>
             <Button size="sm" onClick={onApply} disabled={loading} className="whitespace-nowrap">
-                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} /> Apply
+                <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />Apply
             </Button>
         </div>
     );
@@ -182,18 +184,34 @@ export default function ReportsPage() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Reports & Analytics</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Reports & Analytics</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                     Revenue trends, best-sellers, payment breakdown, staff performance, and profit tracking.
                 </p>
             </div>
 
             <Tabs defaultValue="summary" className="w-full">
-                <TabsList className="mb-6">
-                    <TabsTrigger value="summary"><BarChart2 className="h-4 w-4 mr-1.5 inline" />Revenue Summary</TabsTrigger>
-                    <TabsTrigger value="products"><ShoppingBag className="h-4 w-4 mr-1.5 inline" />Top Products</TabsTrigger>
-                    <TabsTrigger value="cashier"><Users className="h-4 w-4 mr-1.5 inline" />Cashier & Payments</TabsTrigger>
-                    <TabsTrigger value="profit"><DollarSign className="h-4 w-4 mr-1.5 inline" />Profit Tracking</TabsTrigger>
+                <TabsList className="mb-6 w-full h-auto flex overflow-x-auto justify-start flex-nowrap gap-0.5 p-1">
+                    <TabsTrigger value="summary" className="flex-shrink-0 gap-1.5">
+                        <BarChart2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Revenue Summary</span>
+                        <span className="sm:hidden">Revenue</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="products" className="flex-shrink-0 gap-1.5">
+                        <ShoppingBag className="h-4 w-4" />
+                        <span className="hidden sm:inline">Top Products</span>
+                        <span className="sm:hidden">Products</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="cashier" className="flex-shrink-0 gap-1.5">
+                        <Users className="h-4 w-4" />
+                        <span className="hidden sm:inline">Cashier &amp; Payments</span>
+                        <span className="sm:hidden">Cashier</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="profit" className="flex-shrink-0 gap-1.5">
+                        <DollarSign className="h-4 w-4" />
+                        <span className="hidden sm:inline">Profit Tracking</span>
+                        <span className="sm:hidden">Profit</span>
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* ─── TAB 1: Revenue Summary ───────────────────────── */}
@@ -500,3 +518,4 @@ export default function ReportsPage() {
         </div>
     );
 }
+

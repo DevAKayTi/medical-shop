@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -64,7 +63,7 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
         product_name: item.product?.name || "Unknown Product",
         batch_id: item.batch_id,
         batch_number: item.batch?.batch_number || item.batch_number,
-        max_quantity: Number(item.quantity || 0),
+        max_quantity: Number(item.quantity || 0) - Number(item.returned_quantity || 0),
         quantity: 0,
         price: Number(item.purchase_price || 0),
         total: 0,
@@ -78,7 +77,7 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
         setValue,
         formState: { errors, isSubmitting },
     } = useForm<FormValues>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as any,
         defaultValues: {
             reason: "",
             status: "completed",
@@ -137,7 +136,7 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
     const itemsGlobalError = !Array.isArray(errors.items) ? (errors.items as any)?.message : undefined;
 
     return (
-        <form onSubmit={handleSubmit(processSubmit)} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300" noValidate>
+        <form onSubmit={handleSubmit(processSubmit as any)} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300" noValidate>
             <Card>
                 <CardHeader>
                     <CardTitle className="text-xl">Return Items from {purchase.purchase_number}</CardTitle>

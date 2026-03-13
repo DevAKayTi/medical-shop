@@ -31,8 +31,9 @@ export interface User {
     id: string; // The backend uses UUIDs
     name: string;
     email: string; // Backend uses email to login
-    roles: Array<{ name: string; slug: string }>; // Shop-api returns a roles array
+    roles: Array<{ name: string; slug: string; permissions?: Array<{ slug: string }> }>; // Shop-api returns a roles array
     role: Role; // We'll keep this for the frontend mapping (Admin | Manager | Cashier)
+    permissions: string[]; // Flat array of permission slugs
 }
 
 export interface Product {

@@ -13,6 +13,23 @@ const mapRole = (roles: Array<{ name: string; slug: string }>): Role => {
     return "Cashier";
 };
 
+// Helper to flatten permissions from roles
+const extractPermissions = (roles: Array<{ name: string; slug: string; permissions?: Array<{ slug: string }> }>): string[] => {
+    if (!roles) return [];
+
+    const permissions = new Set<string>();
+
+    roles.forEach(role => {
+        if (role.permissions && Array.isArray(role.permissions)) {
+            role.permissions.forEach(p => {
+                if (p.slug) permissions.add(p.slug);
+            });
+        }
+    });
+
+    return Array.from(permissions);
+};
+
 export const authLib = {
     login: async (email: string, passwordPlain: string): Promise<User | null> => {
         try {
@@ -32,7 +49,8 @@ export const authLib = {
                     name: backendUser.name,
                     email: backendUser.email,
                     roles: backendUser.roles || [],
-                    role: mapRole(backendUser.roles || [])
+                    role: mapRole(backendUser.roles || []),
+                    permissions: extractPermissions(backendUser.roles || [])
                 };
 
                 storageLib.setAuthUser(user);
@@ -55,7 +73,8 @@ export const authLib = {
                     name: backendUser.name,
                     email: backendUser.email,
                     roles: backendUser.roles || [],
-                    role: mapRole(backendUser.roles || [])
+                    role: mapRole(backendUser.roles || []),
+                    permissions: extractPermissions(backendUser.roles || [])
                 };
                 storageLib.setAuthUser(user);
                 return user;
@@ -93,5 +112,13 @@ export const authLib = {
     isCashierOrAdmin: (user?: User | null): boolean => {
         const u = user || storageLib.getAuthUser();
         return u?.role === "Admin" || u?.role === "Cashier";
+    },
+
+    // New fine-grained permission check based on the RBAC enterprise guide
+    hasPermission: (slug: string, user?: User | null): boolean => {
+        const u = user || storageLib.getAuthUser();
+        if (!u || !u.permissions) return false;
+
+        return u.permissions.includes(slug);
     }
 };

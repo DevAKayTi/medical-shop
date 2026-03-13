@@ -6,9 +6,10 @@ import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, Lo
 interface SidebarProps {
     user: User;
     shop: ShopInfo | null;
+    onClose?: () => void;
 }
 
-export function Sidebar({ user, shop }: SidebarProps) {
+export function Sidebar({ user, shop, onClose }: SidebarProps) {
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -17,31 +18,31 @@ export function Sidebar({ user, shop }: SidebarProps) {
     };
 
     const navItems = [
-        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["Admin", "Manager", "Cashier"] },
-        { name: "Inventory", href: "/dashboard/inventory", icon: PackageSearch, roles: ["Admin", "Manager"] },
-        { name: "Purchases & Returns", href: "/dashboard/purchases", icon: ShoppingCart, roles: ["Admin", "Manager"] },
-        { name: "Point of Sale (POS)", href: "/dashboard/pos", icon: MonitorStop, roles: ["Admin", "Manager", "Cashier"] },
-        { name: "Sales History", href: "/dashboard/sales", icon: Receipt, roles: ["Admin", "Manager", "Cashier"] },
-        { name: "Revenue Details", href: "/dashboard/revenue", icon: TrendingUp, roles: ["Admin", "Manager"] },
-        { name: "Customers", href: "/dashboard/customers", icon: Users, roles: ["Admin", "Manager", "Cashier"] },
-        { name: "Cash Registers", href: "/dashboard/registers", icon: Store, roles: ["Admin", "Manager"] },
-        { name: "Shift History", href: "/dashboard/shifts", icon: Clock, roles: ["Admin", "Manager"] },
-        { name: "Reports", href: "/dashboard/reports", icon: BarChart3, roles: ["Admin", "Manager"] },
-        { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["Admin"] },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, permission: "view-dashboard" },
+        { name: "Inventory", href: "/dashboard/inventory", icon: PackageSearch, permission: "read-catalog" },
+        { name: "Purchases & Returns", href: "/dashboard/purchases", icon: ShoppingCart, permission: "read-purchases" },
+        { name: "Point of Sale (POS)", href: "/dashboard/pos", icon: MonitorStop, permission: "create-sales" },
+        { name: "Sales History", href: "/dashboard/sales", icon: Receipt, permission: "read-sales" },
+        { name: "Revenue Details", href: "/dashboard/revenue", icon: TrendingUp, permission: "view-reports" }, // Needs view-reports
+        { name: "Customers", href: "/dashboard/customers", icon: Users, permission: "read-customers" },
+        { name: "Cash Registers", href: "/dashboard/registers", icon: Store, permission: "read-registers" },
+        { name: "Shift History", href: "/dashboard/shifts", icon: Clock, permission: "read-shifts" },
+        { name: "Reports", href: "/dashboard/reports", icon: BarChart3, permission: "view-reports" },
+        { name: "Settings", href: "/dashboard/settings", icon: Settings, permission: "manage-settings" },
     ];
 
     // Filter items user has access to
-    const visibleItems = navItems.filter(item => item.roles.includes(user.role));
+    const visibleItems = navItems.filter(item => authLib.hasPermission(item.permission, user));
 
     return (
-        <div className="flex w-64 flex-col bg-slate-900 border-r border-slate-800 text-slate-300">
+        <div className="flex h-full w-64 flex-col bg-slate-900 border-r border-slate-800 text-slate-300">
             {/* Shop Branding */}
             <div className="px-5 py-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white flex-shrink-0">
                         <Store className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-white leading-tight">
                             {shop?.name ?? "Medical POS"}
                         </p>
@@ -52,6 +53,16 @@ export function Sidebar({ user, shop }: SidebarProps) {
                             </p>
                         )}
                     </div>
+                    {/* Close button — only shown on mobile */}
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="lg:hidden ml-auto p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex-shrink-0"
+                            aria-label="Close sidebar"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                        </button>
+                    )}
                 </div>
 
                 {/* Shop status badge */}
