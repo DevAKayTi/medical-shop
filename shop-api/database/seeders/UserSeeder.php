@@ -25,16 +25,16 @@ class UserSeeder extends Seeder
 
         $adminRole = Role::where('slug', 'admin')->first();
         $managerRole = Role::where('slug', 'manager')->first();
-        $staffRole = Role::where('slug', 'staff')->first();
+        $cashierRole = Role::where('slug', 'cashier')->first();
 
-        if (!$adminRole || !$managerRole || !$staffRole) {
+        if (!$adminRole || !$managerRole || !$cashierRole) {
             // Attempt to seed roles if they don't exist
             $this->call(RolePermissionSeeder::class);
             $adminRole = Role::where('slug', 'admin')->first();
             $managerRole = Role::where('slug', 'manager')->first();
-            $staffRole = Role::where('slug', 'staff')->first();
+            $cashierRole = Role::where('slug', 'cashier')->first();
             
-            if (!$adminRole || !$managerRole || !$staffRole) {
+            if (!$adminRole || !$managerRole || !$cashierRole) {
                 $this->command->warn('Roles not found. Please check RolePermissionSeeder.');
                 return;
             }
@@ -69,8 +69,8 @@ class UserSeeder extends Seeder
                 $manager->roles()->attach($managerRole->id);
             }
 
-            // 3. Staff
-            $staff = User::firstOrCreate(
+            // 3. Cashier
+            $cashier = User::firstOrCreate(
                 ['email' => "staff@{$shop->slug}.com"],
                 [
                     'shop_id' => $shop->id,
@@ -79,8 +79,8 @@ class UserSeeder extends Seeder
                     'is_active' => true,
                 ]
             );
-            if (!$staff->hasRole('staff')) {
-                $staff->roles()->attach($staffRole->id);
+            if (!$cashier->hasRole('cashier')) {
+                $cashier->roles()->attach($cashierRole->id);
             }
 
             $this->command->info("Users seeded successfully for {$shop->name}.");

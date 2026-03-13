@@ -6,9 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductBatch;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class ProductController extends Controller
+class ProductController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-catalog', only: ['index', 'show', 'batches']),
+            new Middleware('can:create-catalog', only: ['store', 'storeBatch']),
+            new Middleware('can:update-catalog', only: ['update', 'updateBatch']),
+            new Middleware('can:delete-catalog', only: ['destroy', 'destroyBatch']),
+        ];
+    }
     public function index(Request $request)
     {
         $user = $request->user();

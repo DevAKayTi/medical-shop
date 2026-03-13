@@ -10,10 +10,19 @@ use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class PurchaseReturnController extends Controller
+class PurchaseReturnController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-returns', only: ['index', 'show']),
+            new Middleware('can:create-returns', only: ['store']),
+            new Middleware('can:complete-returns', only: ['complete']),
+        ];
+    }
     protected InventoryService $inventoryService;
 
     public function __construct(InventoryService $inventoryService)

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
+use Illuminate\Support\Facades\Gate;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +21,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Define a global gate before check to handle custom RBAC permissions
+        Gate::before(function ($user, $ability) {
+            if (method_exists($user, 'hasPermission')) {
+                return $user->hasPermission($ability) ?: null;
+            }
+        });
     }
 }

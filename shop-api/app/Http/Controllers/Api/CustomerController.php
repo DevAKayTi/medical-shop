@@ -6,9 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class CustomerController extends Controller
+class CustomerController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-customers', only: ['index', 'show']),
+            new Middleware('can:create-customers', only: ['store']),
+            new Middleware('can:update-customers', only: ['update']),
+            new Middleware('can:delete-customers', only: ['destroy']),
+        ];
+    }
     public function index(Request $request)
     {
         $query = Customer::where('shop_id', Auth::user()->shop_id)

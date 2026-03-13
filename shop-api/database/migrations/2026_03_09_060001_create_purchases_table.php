@@ -14,6 +14,7 @@ return new class extends Migration
             $table->foreignUuid('supplier_id')->constrained('suppliers');
             $table->string('purchase_number', 100)->notNull();
             $table->string('status', 30)->default('pending')->comment('pending | received | cancelled');
+            $table->string('payment_status', 30)->default('unpaid')->comment('unpaid | paid');
             $table->decimal('subtotal', 12, 2);
             $table->decimal('discount', 10, 2)->default(0);
             $table->decimal('tax', 10, 2)->default(0);

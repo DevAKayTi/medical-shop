@@ -18,6 +18,7 @@ class PurchaseReturn extends Model
         'total',
         'reason',
         'status',
+        'payment_status',
         'returned_by',
     ];
 

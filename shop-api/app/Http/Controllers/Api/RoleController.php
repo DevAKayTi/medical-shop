@@ -4,11 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Role;
+use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class RoleController extends Controller
+class RoleController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-roles', only: ['index', 'show']),
+            new Middleware('can:manage-roles', only: ['store', 'update', 'destroy', 'syncPermissions']),
+        ];
+    }
     public function index()
     {
         return response()->json(Role::with('permissions')->withCount('users')->get());

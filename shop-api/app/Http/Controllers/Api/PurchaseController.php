@@ -11,9 +11,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class PurchaseController extends Controller
+class PurchaseController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-purchases', only: ['index', 'show']),
+            new Middleware('can:create-purchases', only: ['store']),
+            new Middleware('can:update-purchases', only: ['update']),
+            new Middleware('can:delete-purchases', only: ['destroy']),
+        ];
+    }
     protected InventoryService $inventoryService;
 
     public function __construct(InventoryService $inventoryService)

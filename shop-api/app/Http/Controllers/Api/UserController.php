@@ -4,13 +4,24 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use App\Models\Role;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class UserController extends Controller
+class UserController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-users', only: ['index', 'show']),
+            new Middleware('can:create-users', only: ['store']),
+            new Middleware('can:update-users', only: ['update', 'syncRoles']),
+            new Middleware('can:delete-users', only: ['destroy']),
+        ];
+    }
     /**
      * Display a listing of the users.
      */

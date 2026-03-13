@@ -17,6 +17,7 @@ return new class extends Migration
             $table->decimal('total', 12, 2);
             $table->text('reason')->nullable();
             $table->string('status', 30)->default('pending')->comment('pending | completed');
+            $table->string('payment_status', 30)->default('unpaid')->comment('unpaid | paid');
             $table->foreignUuid('returned_by')->nullable()->constrained('users');
             $table->timestamps();
 

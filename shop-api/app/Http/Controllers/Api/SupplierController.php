@@ -5,9 +5,20 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class SupplierController extends Controller
+class SupplierController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-suppliers', only: ['index']),
+            new Middleware('can:create-suppliers', only: ['store']),
+            new Middleware('can:update-suppliers', only: ['update']),
+            new Middleware('can:delete-suppliers', only: ['destroy']),
+        ];
+    }
     public function index(Request $request)
     {
         $user = $request->user();

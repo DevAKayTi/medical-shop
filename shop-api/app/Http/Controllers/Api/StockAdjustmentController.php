@@ -8,9 +8,18 @@ use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class StockAdjustmentController extends Controller
+class StockAdjustmentController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-stock', only: ['index']),
+            new Middleware('can:adjust-stock', only: ['store']),
+        ];
+    }
     protected $inventoryService;
 
     public function __construct(InventoryService $inventoryService)

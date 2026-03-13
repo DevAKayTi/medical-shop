@@ -6,9 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class PermissionController extends Controller
+class PermissionController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-roles', only: ['index', 'show']),
+            new Middleware('can:manage-roles', only: ['store', 'update', 'destroy']),
+        ];
+    }
     public function index()
     {
         return response()->json(Permission::all());

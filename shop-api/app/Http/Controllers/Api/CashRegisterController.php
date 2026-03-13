@@ -6,9 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\CashRegister;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class CashRegisterController extends Controller
+class CashRegisterController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-registers', only: ['index']),
+            new Middleware('can:manage-registers', only: ['store', 'update', 'destroy', 'show']),
+        ];
+    }
     public function index(Request $request)
     {
         $query = CashRegister::where('shop_id', Auth::user()->shop_id);

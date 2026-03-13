@@ -3,17 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Product;
 use App\Models\Sale;
-use App\Models\SaleItem;
-use App\Models\SalePayment;
+use App\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class DashboardController extends Controller
+class DashboardController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:view-dashboard', only: ['stats']),
+            new Middleware('can:view-reports', only: ['revenueDetails', 'reports']),
+        ];
+    }
     /**
      * Get aggregated stats for the dashboard.
      */

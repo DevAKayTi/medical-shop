@@ -5,19 +5,29 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ShiftSession;
 use App\Models\CashRegister;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class ShiftSessionController extends Controller
+class ShiftSessionController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:read-shifts', only: ['index', 'show']),
+            new Middleware('can:open-shift', only: ['store']),
+            new Middleware('can:close-shift', only: ['close']),
+        ];
+    }
     public function index(Request $request)
     {
         $query = ShiftSession::where('shop_id', Auth::user()->shop_id)
             ->with(['register', 'user']);
 
         // Check if user is admin/manager to see all, otherwise restrict to own
-        if (!Auth::user()->hasRole('super-admin|shop-owner|admin-user|manager-user')) {
+        if (!Auth::user()->hasRole('admin|manager')) {
              $query->where('user_id', Auth::user()->id);
         } elseif ($request->has('user_id')) {
              $query->where('user_id', $request->user_id);
@@ -87,7 +97,7 @@ class ShiftSessionController extends Controller
             return response()->json(['message' => 'This shift session is already closed.'], 400);
         }
 
-        abort_unless($shiftSession->user_id === Auth::user()->id || Auth::user()->hasRole('super-admin|shop-owner'), 403, 'You can only close your own shift.');
+        abort_unless($shiftSession->user_id === Auth::user()->id || Auth::user()->hasRole('admin'), 403, 'You can only close your own shift.');
 
         $data = $request->validate([
             'closing_cash' => 'required|numeric|min:0',
