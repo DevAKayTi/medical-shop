@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Supplier;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -42,6 +43,9 @@ class SupplierController extends Controller implements HasMiddleware
 
         $data['shop_id'] = $user->shop_id;
         $supplier = Supplier::create($data);
+
+        ActivityLogger::log('Contact', 'Create Supplier', "Created supplier: {$supplier->name}");
+
         return response()->json($supplier, 201);
     }
 
@@ -57,12 +61,17 @@ class SupplierController extends Controller implements HasMiddleware
         ]);
 
         $supplier->update($data);
+
+        ActivityLogger::log('Contact', 'Update Supplier', "Updated supplier: {$supplier->name}");
+
         return response()->json($supplier);
     }
 
     public function destroy(Supplier $supplier)
     {
+        $name = $supplier->name;
         $supplier->delete();
+        ActivityLogger::log('Contact', 'Delete Supplier', "Deleted supplier: {$name}");
         return response()->json(['message' => 'Supplier deleted.']);
     }
 }

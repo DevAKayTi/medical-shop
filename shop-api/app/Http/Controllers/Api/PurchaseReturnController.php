@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Purchase;
 use App\Models\PurchaseReturn;
 use App\Models\PurchaseReturnItem;
+use App\Services\ActivityLogger;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -136,6 +137,8 @@ class PurchaseReturnController extends Controller implements HasMiddleware
                 }
             }
 
+            ActivityLogger::log('Purchases', 'Create Purchase Return', "Created purchase return #{$return->return_number} for purchase #{$purchase->purchase_number}. Total: {$return->total}");
+
             return $return;
         });
 
@@ -186,6 +189,7 @@ class PurchaseReturnController extends Controller implements HasMiddleware
                     $userId
                 );
             }
+            ActivityLogger::log('Purchases', 'Complete Purchase Return', "Completed purchase return #{$purchaseReturn->return_number}");
         });
 
         return response()->json($purchaseReturn->fresh()->load(['purchase', 'supplier', 'items.product', 'items.batch']));
@@ -206,6 +210,8 @@ class PurchaseReturnController extends Controller implements HasMiddleware
         ]);
 
         $purchaseReturn->update($validated);
+
+        ActivityLogger::log('Purchases', 'Update Purchase Return', "Updated purchase return #{$purchaseReturn->return_number}");
 
         return response()->json($purchaseReturn->fresh()->load(['purchase', 'supplier', 'items.product', 'items.batch']));
     }

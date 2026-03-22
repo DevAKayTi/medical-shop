@@ -14,6 +14,7 @@ import RevenueDetailsPage from "@/pages/dashboard/revenue";
 import PurchasesPage from "@/pages/dashboard/purchases";
 import RegistersPage from "@/pages/dashboard/registers";
 import ShiftsPage from "@/pages/dashboard/shifts";
+import ActivityLogsPage from "@/pages/dashboard/ActivityLogs";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
             <Route path="customers" element={<CustomersPage />} />
             <Route path="registers" element={<RegistersPage />} />
             <Route path="shifts" element={<ShiftsPage />} />
+            <Route path="activity-logs" element={<ActivityLogsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

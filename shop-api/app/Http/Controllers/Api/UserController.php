@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -62,6 +63,8 @@ class UserController extends Controller implements HasMiddleware
             $user->roles()->sync([$role->id]);
         }
 
+        ActivityLogger::log('Users', 'Create User', "Created user: {$user->name} ({$user->email}) with role: {$validated['role']}");
+
         return response()->json($user->load('roles'), 201);
     }
 
@@ -102,6 +105,8 @@ class UserController extends Controller implements HasMiddleware
             }
         }
 
+        ActivityLogger::log('Users', 'Update User', "Updated user: {$user->name} ({$user->email})");
+
         return response()->json($user->load('roles'));
     }
 
@@ -110,7 +115,10 @@ class UserController extends Controller implements HasMiddleware
      */
     public function destroy(User $user)
     {
+        $name = $user->name;
+        $email = $user->email;
         $user->delete();
+        ActivityLogger::log('Users', 'Delete User', "Deleted user: {$name} ({$email})");
         return response()->json(['message' => 'User deleted successfully']);
     }
 
@@ -125,6 +133,8 @@ class UserController extends Controller implements HasMiddleware
         ]);
 
         $user->roles()->sync($validated['roles']);
+
+        ActivityLogger::log('Users', 'Sync Roles', "Synced roles for user: {$user->name} ({$user->email})");
 
         return response()->json($user->load('roles'));
     }

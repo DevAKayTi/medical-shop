@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductBatch;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -67,6 +68,9 @@ class ProductController extends Controller implements HasMiddleware
 
         $data['shop_id'] = $user->shop_id;
         $product = Product::create($data);
+
+        ActivityLogger::log('Inventory', 'Create Product', "Created product: {$product->name}");
+
         return response()->json($product->load(['category']), 201);
     }
 
@@ -114,12 +118,17 @@ class ProductController extends Controller implements HasMiddleware
         ]);
 
         $product->update($data);
+
+        ActivityLogger::log('Inventory', 'Update Product', "Updated product: {$product->name}");
+
         return response()->json($product->load(['category']));
     }
 
     public function destroy(Product $product)
     {
+        $name = $product->name;
         $product->delete();
+        ActivityLogger::log('Inventory', 'Delete Product', "Deleted product: {$name}");
         return response()->json(['message' => 'Product deleted.']);
     }
 
@@ -153,6 +162,9 @@ class ProductController extends Controller implements HasMiddleware
         $data['product_id'] = $product->id;
 
         $batch = ProductBatch::create($data);
+
+        ActivityLogger::log('Inventory', 'Add Batch', "Added batch {$batch->batch_number} for product {$product->name}");
+
         return response()->json($batch->load(['supplier']), 201);
     }
 
@@ -171,12 +183,18 @@ class ProductController extends Controller implements HasMiddleware
         ]);
 
         $batch->update($data);
+
+        ActivityLogger::log('Inventory', 'Update Batch', "Updated batch {$batch->batch_number} for product {$batch->product->name}");
+
         return response()->json($batch->load(['supplier']));
     }
 
     public function destroyBatch(ProductBatch $batch)
     {
+        $bn = $batch->batch_number;
+        $pn = $batch->product->name;
         $batch->delete();
+        ActivityLogger::log('Inventory', 'Delete Batch', "Deleted batch {$bn} for product {$pn}");
         return response()->json(['message' => 'Batch deleted.']);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\StockAdjustment;
+use App\Services\ActivityLogger;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -79,6 +80,8 @@ class StockAdjustmentController extends Controller implements HasMiddleware
             $validated['reason'],
             $userId
         );
+
+        ActivityLogger::log('Inventory', 'Stock Adjustment', "Adjusted stock for {$adjustment->product->name}. Type: {$adjustment->type}, Qty: {$adjustment->quantity}");
 
         return response()->json($adjustment->load(['product', 'batch']), 201);
     }

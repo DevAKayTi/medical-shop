@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\ProductBatch;
+use App\Services\ActivityLogger;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -163,6 +164,8 @@ class PurchaseController extends Controller implements HasMiddleware
                 }
             }
 
+            ActivityLogger::log('Purchases', 'Create Purchase', "Created purchase #{$purchase->purchase_number}. Total: {$purchase->total}");
+
             return $purchase;
         });
 
@@ -234,6 +237,7 @@ class PurchaseController extends Controller implements HasMiddleware
                     );
                 }
             }
+            ActivityLogger::log('Purchases', 'Update Purchase', "Updated purchase #{$purchase->purchase_number}. Status: {$purchase->status}");
         });
 
         return response()->json($purchase->fresh()->load(['supplier', 'items.product', 'items.batch']));
@@ -252,7 +256,10 @@ class PurchaseController extends Controller implements HasMiddleware
             return response()->json(['message' => 'Only pending purchases can be deleted.'], 422);
         }
 
+        $num = $purchase->purchase_number;
         $purchase->delete();
+
+        ActivityLogger::log('Purchases', 'Delete Purchase', "Deleted purchase #{$num}");
 
         return response()->json(['message' => 'Purchase deleted.']);
     }

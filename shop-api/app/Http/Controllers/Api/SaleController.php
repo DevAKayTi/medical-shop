@@ -8,6 +8,7 @@ use App\Models\SaleItem;
 use App\Models\ProductBatch;
 use App\Models\SalePayment;
 use App\Models\Customer;
+use App\Services\ActivityLogger;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -224,6 +225,9 @@ class SaleController extends Controller implements HasMiddleware
             }
 
             DB::commit();
+
+            ActivityLogger::log('Sales', 'Create Sale', "Created sale #{$sale->invoice_number}. Total: {$sale->total}");
+
             return response()->json(
                 $sale->load(['customer', 'items.product', 'items.batch', 'payments']),
                 201
@@ -316,6 +320,9 @@ class SaleController extends Controller implements HasMiddleware
             }
             
             DB::commit();
+
+            ActivityLogger::log('Sales', 'Void Sale', "Voided sale #{$sale->invoice_number}. Generated refund #{$refundSale->invoice_number}");
+
             return response()->json(['message' => 'Sale voided. A negative refund invoice was generated.']);
         } catch (\Throwable $e) {
             DB::rollBack();

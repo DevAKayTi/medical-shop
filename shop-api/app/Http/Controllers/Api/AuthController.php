@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,8 @@ class AuthController extends Controller
         $user = $request->user();
         $token = $user->createToken('AuthToken')->accessToken;
 
+        ActivityLogger::log('Auth', 'Login', "User {$user->name} logged in.");
+
         return response()->json([
             'user' => $user->load('roles.permissions'),
             'token' => $token
@@ -85,7 +88,9 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->token()->revoke();
+        $user = $request->user();
+        ActivityLogger::log('Auth', 'Logout', "User {$user->name} logged out.");
+        $user->token()->revoke();
         return response()->json(['message' => 'Successfully logged out']);
     }
 }

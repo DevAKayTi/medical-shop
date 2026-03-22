@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -40,6 +41,9 @@ class CategoryController extends Controller implements HasMiddleware
 
         $data['shop_id'] = $user->shop_id;
         $category = Category::create($data);
+
+        ActivityLogger::log('Inventory', 'Create Category', "Created category: {$category->name}");
+
         return response()->json($category, 201);
     }
 
@@ -53,12 +57,17 @@ class CategoryController extends Controller implements HasMiddleware
         ]);
 
         $category->update($data);
+
+        ActivityLogger::log('Inventory', 'Update Category', "Updated category: {$category->name}");
+
         return response()->json($category);
     }
 
     public function destroy(Category $category)
     {
+        $name = $category->name;
         $category->delete();
+        ActivityLogger::log('Inventory', 'Delete Category', "Deleted category: {$name}");
         return response()->json(['message' => 'Category deleted.']);
     }
 }

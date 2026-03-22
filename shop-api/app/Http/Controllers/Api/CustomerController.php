@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -51,7 +52,11 @@ class CustomerController extends Controller implements HasMiddleware
 
         $data['shop_id'] = Auth::user()->shop_id;
 
-        return response()->json(Customer::create($data), 201);
+        $customer = Customer::create($data);
+
+        ActivityLogger::log('Contact', 'Create Customer', "Created customer: {$customer->name}");
+
+        return response()->json($customer, 201);
     }
 
     public function show(Customer $customer)
@@ -77,13 +82,18 @@ class CustomerController extends Controller implements HasMiddleware
         ]);
 
         $customer->update($data);
+
+        ActivityLogger::log('Contact', 'Update Customer', "Updated customer: {$customer->name}");
+
         return response()->json($customer);
     }
 
     public function destroy(Customer $customer)
     {
         $this->authorizeShop($customer);
+        $name = $customer->name;
         $customer->delete();
+        ActivityLogger::log('Contact', 'Delete Customer', "Deleted customer: {$name}");
         return response()->json(['message' => 'Customer deleted.']);
     }
 

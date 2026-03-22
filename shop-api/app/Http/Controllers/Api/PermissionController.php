@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Permission;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -34,6 +35,8 @@ class PermissionController extends Controller implements HasMiddleware
 
         $permission = Permission::create($validated);
 
+        ActivityLogger::log('Permissions', 'Create Permission', "Created permission: {$permission->name}");
+
         return response()->json($permission, 201);
     }
 
@@ -53,13 +56,16 @@ class PermissionController extends Controller implements HasMiddleware
 
         $permission->update($validated);
 
+        ActivityLogger::log('Permissions', 'Update Permission', "Updated permission: {$permission->name}");
+
         return response()->json($permission);
     }
 
     public function destroy(Permission $permission)
     {
+        $name = $permission->name;
         $permission->delete();
-
+        ActivityLogger::log('Permissions', 'Delete Permission', "Deleted permission: {$name}");
         return response()->json(null, 204);
     }
 }

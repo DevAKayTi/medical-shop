@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\PurchaseReturnController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ActivityLogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
     Route::get('/dashboard/revenue-details', [DashboardController::class, 'revenueDetails']);
     Route::get('/dashboard/reports', [DashboardController::class, 'reports']);
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 

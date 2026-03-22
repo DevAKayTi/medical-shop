@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\Permission;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -44,6 +45,8 @@ class RoleController extends Controller implements HasMiddleware
             $role->permissions()->sync($validated['permissions']);
         }
 
+        ActivityLogger::log('Roles', 'Create Role', "Created role: {$role->name}");
+
         return response()->json($role->load('permissions'), 201);
     }
 
@@ -71,13 +74,16 @@ class RoleController extends Controller implements HasMiddleware
             $role->permissions()->sync($validated['permissions']);
         }
 
+        ActivityLogger::log('Roles', 'Update Role', "Updated role: {$role->name}");
+
         return response()->json($role->load('permissions'));
     }
 
     public function destroy(Role $role)
     {
+        $name = $role->name;
         $role->delete();
-
+        ActivityLogger::log('Roles', 'Delete Role', "Deleted role: {$name}");
         return response()->json(null, 204);
     }
 
@@ -89,6 +95,8 @@ class RoleController extends Controller implements HasMiddleware
         ]);
 
         $role->permissions()->sync($validated['permissions']);
+
+        ActivityLogger::log('Roles', 'Sync Permissions', "Synced permissions for role: {$role->name}");
 
         return response()->json($role->load('permissions'));
     }
