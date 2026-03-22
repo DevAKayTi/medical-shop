@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
 use App\Services\ActivityLogger;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -64,6 +65,15 @@ class UserController extends Controller implements HasMiddleware
         }
 
         ActivityLogger::log('Users', 'Create User', "Created user: {$user->name} ({$user->email}) with role: {$validated['role']}");
+
+        // Live notification
+        NotificationService::send(
+            shopId:  Auth::user()->shop_id,
+            type:    'user',
+            title:   '👤 New User Added',
+            message: "{$user->name} has been added to the system with role: {$validated['role']}",
+            data:    ['user_id' => $user->id, 'name' => $user->name, 'role' => $validated['role']],
+        );
 
         return response()->json($user->load('roles'), 201);
     }

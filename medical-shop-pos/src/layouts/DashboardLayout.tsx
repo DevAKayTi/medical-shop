@@ -4,6 +4,7 @@ import { storageLib, User, ShopInfo } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
 import { shopLib } from "@/lib/shop";
 import { Sidebar } from "@/components/Sidebar";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Menu } from "lucide-react";
 
 export function DashboardLayout() {
@@ -81,13 +82,20 @@ export function DashboardLayout() {
                     >
                         <Menu className="h-5 w-5" />
                     </button>
-                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">
                         {shop?.name ?? "Medical POS"}
                     </span>
+                    <NotificationBell />
                 </div>
 
-                <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">
-                    <Outlet context={{ user, shop }} />
+                <main className="flex-1 overflow-y-auto overflow-x-hidden">
+                    {/* Desktop top bar with notification bell */}
+                    <div className="hidden lg:flex items-center justify-end border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3">
+                        <NotificationBell />
+                    </div>
+                    <div className="p-6">
+                        <Outlet context={{ user, shop }} />
+                    </div>
                 </main>
             </div>
         </div>

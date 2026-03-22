@@ -10,6 +10,7 @@ use App\Models\SalePayment;
 use App\Models\Customer;
 use App\Services\ActivityLogger;
 use App\Services\InventoryService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -227,6 +228,15 @@ class SaleController extends Controller implements HasMiddleware
             DB::commit();
 
             ActivityLogger::log('Sales', 'Create Sale', "Created sale #{$sale->invoice_number}. Total: {$sale->total}");
+
+            // Live notification
+            NotificationService::send(
+                shopId:  $shopId,
+                type:    'sale',
+                title:   '💊 New Sale Completed',
+                message: "Invoice #{$sale->invoice_number} — Total: {$sale->total}",
+                data:    ['sale_id' => $sale->id, 'invoice_number' => $sale->invoice_number, 'total' => $sale->total],
+            );
 
             return response()->json(
                 $sale->load(['customer', 'items.product', 'items.batch', 'payments']),

@@ -8,6 +8,7 @@ use App\Models\PurchaseItem;
 use App\Models\ProductBatch;
 use App\Services\ActivityLogger;
 use App\Services\InventoryService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -238,6 +239,17 @@ class PurchaseController extends Controller implements HasMiddleware
                 }
             }
             ActivityLogger::log('Purchases', 'Update Purchase', "Updated purchase #{$purchase->purchase_number}. Status: {$purchase->status}");
+
+            // Live notification when stock is received
+            if (isset($validated['status']) && $validated['status'] === 'received' && $previousStatus !== 'received') {
+                NotificationService::send(
+                    shopId:  Auth::user()->shop_id,
+                    type:    'purchase',
+                    title:   '📦 Purchase Received',
+                    message: "Purchase #{$purchase->purchase_number} stock has been added to inventory.",
+                    data:    ['purchase_id' => $purchase->id, 'purchase_number' => $purchase->purchase_number],
+                );
+            }
         });
 
         return response()->json($purchase->fresh()->load(['supplier', 'items.product', 'items.batch']));

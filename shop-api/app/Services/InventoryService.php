@@ -3,12 +3,16 @@
 namespace App\Services;
 
 use App\Models\InventoryLedger;
+use App\Models\Product;
 use App\Models\ProductBatch;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class InventoryService
 {
+    // Threshold under which a low-stock notification is sent
+    public const LOW_STOCK_THRESHOLD = 10;
+
     /**
      * Adjust stock for a specific batch and record it in the ledger.
      */
@@ -35,28 +39,49 @@ class InventoryService
                 } else {
                     $batch->decrement('quantity', $quantity);
                 }
-                
+
                 $balanceAfter = $batch->fresh()->quantity;
             } else {
-                // For product-level movement (if no batch specified), 
+                // For product-level movement (if no batch specified),
                 // we calculate the total stock of all batches for that product.
                 $balanceAfter = ProductBatch::where('product_id', $productId)->where('shop_id', $shopId)->sum('quantity');
             }
 
             InventoryLedger::create([
-                'id' => Str::uuid(),
-                'shop_id' => $shopId,
-                'product_id' => $productId,
-                'batch_id' => $batchId,
-                'type' => $type,
-                'quantity' => $quantity,
+                'id'             => Str::uuid(),
+                'shop_id'        => $shopId,
+                'product_id'     => $productId,
+                'batch_id'       => $batchId,
+                'type'           => $type,
+                'quantity'       => $quantity,
                 'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'balance_after' => $balanceAfter,
-                'notes' => $notes,
-                'created_by' => $userId,
-                'created_at' => now(),
+                'reference_id'   => $referenceId,
+                'balance_after'  => $balanceAfter,
+                'notes'          => $notes,
+                'created_by'     => $userId,
+                'created_at'     => now(),
             ]);
+
+            // Trigger low-stock notification when a debit brings total shop stock below threshold
+            if ($type === 'debit') {
+                $totalStock = ProductBatch::where('product_id', $productId)
+                    ->where('shop_id', $shopId)
+                    ->where('is_active', true)
+                    ->sum('quantity');
+
+                if ($totalStock <= self::LOW_STOCK_THRESHOLD) {
+                    $product = Product::find($productId);
+                    if ($product) {
+                        NotificationService::send(
+                            shopId:  $shopId,
+                            type:    'low_stock',
+                            title:   '⚠️ Low Stock Alert',
+                            message: "{$product->name} has only {$totalStock} units remaining.",
+                            data:    ['product_id' => $productId, 'product_name' => $product->name, 'stock' => $totalStock],
+                        );
+                    }
+                }
+            }
         });
     }
 }
