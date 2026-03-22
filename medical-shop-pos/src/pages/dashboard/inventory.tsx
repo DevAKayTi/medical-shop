@@ -204,13 +204,13 @@ export default function InventoryPage() {
                 )}
             </div>
 
-            {/* Tab Navigation - scrollable on mobile */}
-            <div className="flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 scrollbar-none -mx-1 px-1">
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 -mx-1 px-1">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => { setActiveTab(tab.id as TabType); setIsFormOpen(false); }}
-                        className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
+                        className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 -mb-px flex-shrink-0 ${activeTab === tab.id
                             ? "border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
                             : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                             }`}
