@@ -160,8 +160,10 @@ export default function POSPage() {
         if (existing >= 0) {
             if (cart[existing].quantity >= stock) return;
             const updated = [...cart];
-            updated[existing].quantity += 1;
-            updated[existing].total = updated[existing].quantity * updated[existing].unit_price - updated[existing].discount;
+            const item = { ...updated[existing] };
+            item.quantity += 1;
+            item.total = item.quantity * item.unit_price - item.discount;
+            updated[existing] = item;
             setCart(updated);
         } else {
             const price = Number(product.selling_price || product.mrp || 0);
@@ -182,11 +184,19 @@ export default function POSPage() {
     const changeQty = (idx: number, delta: number) => {
         setCart(c => {
             const updated = [...c];
-            const newQty = updated[idx].quantity + delta;
-            if (newQty <= 0) { updated.splice(idx, 1); return updated; }
-            if (newQty > updated[idx].stock) return c;
-            updated[idx].quantity = newQty;
-            updated[idx].total = newQty * updated[idx].unit_price - updated[idx].discount;
+            const item = { ...updated[idx] };
+            const newQty = item.quantity + delta;
+
+            if (newQty <= 0) {
+                updated.splice(idx, 1);
+                return updated;
+            }
+            if (newQty > item.stock) return c;
+
+            item.quantity = newQty;
+            item.total = item.quantity * item.unit_price - item.discount;
+            updated[idx] = item;
+
             return updated;
         });
     };
@@ -196,9 +206,13 @@ export default function POSPage() {
     const setItemDiscount = (idx: number, val: string) => {
         setCart(c => {
             const updated = [...c];
+            const item = { ...updated[idx] };
             const disc = Math.max(0, parseFloat(val) || 0);
-            updated[idx].discount = disc;
-            updated[idx].total = Math.max(0, updated[idx].quantity * updated[idx].unit_price - disc);
+
+            item.discount = disc;
+            item.total = Math.max(0, item.quantity * item.unit_price - disc);
+            updated[idx] = item;
+
             return updated;
         });
     };
@@ -704,8 +718,8 @@ export default function POSPage() {
                     <button
                         onClick={() => setActiveTab(activeTab === "products" ? "cart" : "products")}
                         className={`relative flex items-center gap-2 h-11 px-6 rounded-lg font-bold transition-all ${activeTab === "products"
-                                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95"
-                                : "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200"
+                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95"
+                            : "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200"
                             }`}
                     >
                         {activeTab === "products" ? (
