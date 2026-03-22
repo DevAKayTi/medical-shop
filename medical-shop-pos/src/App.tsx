@@ -3,6 +3,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 import LoginPage from "@/pages/auth/login";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import DashboardIndex from "@/pages/dashboard";
+import NotFound from "@/pages/NotFound";
 
 import InventoryPage from "@/pages/dashboard/inventory";
 import CustomersPage from "@/pages/dashboard/customers";
@@ -42,7 +43,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </ToastProvider>

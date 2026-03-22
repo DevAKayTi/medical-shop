@@ -36,7 +36,7 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
     const visibleItems = navItems.filter(item => authLib.hasPermission(item.permission, user));
 
     return (
-        <div className="flex h-full w-64 flex-col bg-slate-900 border-r border-slate-800 text-slate-300">
+        <div className="flex h-full w-64 flex-col bg-gradient-to-b from-teal-950 via-emerald-950 to-teal-950 border-r border-teal-900/50 text-slate-300">
             {/* Shop Branding */}
             <div className="px-5 py-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
@@ -92,8 +92,8 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
                                 end={item.href === "/dashboard"}
                                 className={({ isActive }) =>
                                     `flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive
-                                        ? "bg-blue-600 text-white"
-                                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                                        ? "bg-emerald-600 text-white shadow-md"
+                                        : "text-emerald-100/70 hover:bg-emerald-800/40 hover:text-white"
                                     }`
                                 }
                             >
@@ -115,7 +115,7 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
                 </div>
                 <button
                     onClick={handleLogout}
-                    className="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-slate-800 hover:text-red-300"
+                    className="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-800 hover:text-red-300"
                 >
                     <LogOut className="mr-3 h-5 w-5 flex-shrink-0" />
                     Logout
