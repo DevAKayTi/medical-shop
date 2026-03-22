@@ -1,25 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellRing, Check, CheckCheck, ShoppingCart, Package, AlertTriangle, UserPlus, Info, X } from 'lucide-react';
+import { Bell, BellRing, Check, CheckCheck, X } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { AppNotification } from '@/lib/notifications';
 
-function getNotificationIcon(type: AppNotification['type']) {
+function getTitleColor(type: AppNotification['type'], isRead: boolean) {
+    // If it's read, we might want it slightly muted, or just use the base color with opacity in the class
     switch (type) {
-        case 'sale': return <ShoppingCart className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />;
-        case 'purchase': return <Package className="h-5 w-5 text-blue-600 dark:text-blue-500" />;
-        case 'low_stock': return <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />;
-        case 'user': return <UserPlus className="h-5 w-5 text-indigo-600 dark:text-indigo-500" />;
-        default: return <Info className="h-5 w-5 text-slate-500 dark:text-slate-400" />;
-    }
-}
-
-function getIconBg(type: AppNotification['type']) {
-    switch (type) {
-        case 'sale': return "bg-emerald-100 dark:bg-emerald-500/20";
-        case 'purchase': return "bg-blue-100 dark:bg-blue-500/20";
-        case 'low_stock': return "bg-amber-100 dark:bg-amber-500/20";
-        case 'user': return "bg-indigo-100 dark:bg-indigo-500/20";
-        default: return "bg-slate-100 dark:bg-slate-800";
+        case 'sale': return isRead ? "text-emerald-700/80 dark:text-emerald-500/80" : "text-emerald-700 dark:text-emerald-400";
+        case 'purchase': return isRead ? "text-blue-700/80 dark:text-blue-500/80" : "text-blue-700 dark:text-blue-400";
+        case 'low_stock': return isRead ? "text-amber-700/80 dark:text-amber-500/80" : "text-amber-700 dark:text-amber-500";
+        case 'user': return isRead ? "text-indigo-700/80 dark:text-indigo-500/80" : "text-indigo-700 dark:text-indigo-400";
+        default: return isRead ? "text-slate-700 dark:text-slate-300" : "text-slate-900 dark:text-white";
     }
 }
 
@@ -153,21 +144,16 @@ export function NotificationBell() {
                                         }`}
                                 >
                                     <div className="flex items-start gap-4">
-                                        {/* Icon */}
-                                        <div className={`mt-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border border-white/50 shadow-sm dark:border-slate-800/50 ${getIconBg(n.type)}`}>
-                                            {getNotificationIcon(n.type)}
-                                        </div>
-
-                                        {/* Content */}
+                                        {/* Content without Icon */}
                                         <div className="min-w-0 flex-1">
-                                            <div className="flex items-center justify-between gap-2 mb-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className={`text-base tracking-tight ${n.read_at ? 'font-semibold text-slate-800 dark:text-slate-200' : 'font-bold text-slate-900 dark:text-white'}`}>
+                                            <div className="flex items-start justify-between gap-2 mb-1">
+                                                <div className="flex items-start gap-2 max-w-[80%]">
+                                                    <h3 className={`text-base tracking-tight ${n.read_at ? 'font-semibold' : 'font-bold'} ${getTitleColor(n.type, !!n.read_at)}`}>
                                                         {n.title}
                                                     </h3>
                                                     {/* Explicit "New" Badge for unread items instead of a dot */}
                                                     {!n.read_at && (
-                                                        <span className="inline-flex items-center rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                                                        <span className="mt-0.5 shrink-0 inline-flex items-center rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
                                                             New
                                                         </span>
                                                     )}
