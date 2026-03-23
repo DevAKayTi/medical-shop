@@ -4,7 +4,7 @@ import { formatNumber, getCurrencySymbol } from "@/lib/currency";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
-    ApiProduct, ApiCategory, ApiSupplier, ApiProductBatch, ApiStockAdjustment, ApiInventoryLedger,
+    ApiProduct, ApiCategory, ApiSupplier, ApiStockAdjustment, ApiInventoryLedger,
     productApi, categoryApi, supplierApi, adjustmentApi, ledgerApi
 } from "@/lib/inventory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -12,18 +12,20 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
     PackageSearch, Layers, Users, History, ArrowRightLeft,
-    Plus, Edit, Trash2, Search, Filter, Package, Power,
-    ArrowUpRight, ArrowDownRight
+    Plus, Edit, Trash2, Search, Power,
+    ArrowUpRight, ArrowDownRight, Eye
 } from "lucide-react";
 
+import { AddButton } from "@/components/ui/IconButton";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { ProductForm } from "@/components/ProductForm";
+import { ProductView } from "@/components/ProductView";
 import { CategoryForm } from "@/components/inventory/CategoryForm";
 import { SupplierForm } from "@/components/inventory/SupplierForm";
-import { BatchForm } from "@/components/inventory/BatchForm";
 import { StockAdjustmentForm } from "@/components/inventory/StockAdjustmentForm";
 import { LedgerTable } from "@/components/inventory/LedgerTable";
 
-type TabType = "products" | "batches" | "categories" | "suppliers" | "adjustments" | "ledger";
+type TabType = "products" | "categories" | "suppliers" | "adjustments" | "ledger";
 
 export default function InventoryPage() {
     const toast = useToast();
@@ -31,19 +33,19 @@ export default function InventoryPage() {
     const [activeTab, setActiveTab] = useState<TabType>("products");
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
     // Data states
     const [products, setProducts] = useState<ApiProduct[]>([]);
     const [categories, setCategories] = useState<ApiCategory[]>([]);
     const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
-    const [batches, setBatches] = useState<ApiProductBatch[]>([]);
     const [adjustments, setAdjustments] = useState<ApiStockAdjustment[]>([]);
     const [ledger, setLedger] = useState<ApiInventoryLedger[]>([]);
 
     // Form states
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
-    const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+    const [isViewOnly, setIsViewOnly] = useState(false);
 
     useEffect(() => {
         loadInitialData();
@@ -95,14 +97,16 @@ export default function InventoryPage() {
 
     const handleEditProduct = (product: ApiProduct) => {
         setEditingItem(product);
+        setIsViewOnly(false);
         setIsFormOpen(true);
     };
 
-    const handleViewBatches = (productId: string) => {
-        setSelectedProductId(productId);
-        setActiveTab("batches");
-        loadBatches(productId);
+    const handleViewProduct = (product: ApiProduct) => {
+        setEditingItem(product);
+        setIsViewOnly(true);
+        setIsFormOpen(true);
     };
+
 
     const handleDeleteProduct = async (id: string) => {
         const isConfirmed = await confirm({
@@ -121,10 +125,6 @@ export default function InventoryPage() {
             }
         }
     };
-
-
-
-
 
     const handleToggleCategoryStatus = async (category: ApiCategory) => {
         const newStatus = !category.is_active;
@@ -152,26 +152,36 @@ export default function InventoryPage() {
             confirmText: `Yes, ${newStatus ? 'Activate' : 'Deactivate'} Supplier`
         });
         if (isConfirmed) {
-            await supplierApi.update(supplier.id, { is_active: newStatus });
-            setSuppliers(suppliers.map(s => s.id === supplier.id ? { ...s, is_active: newStatus } : s));
+            try {
+                await supplierApi.update(supplier.id, { phone: supplier.phone, is_active: newStatus });
+                setSuppliers(suppliers.map(s => s.id === supplier.id ? { ...s, is_active: newStatus } : s));
+                toast.success(`Supplier ${newStatus ? 'activated' : 'deactivated'}.`);
+            } catch {
+                toast.error("Failed to update supplier status.");
+            }
+
+
         }
     };
 
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
+            const matchesCategory = selectedCategory === "all" || p.category_id === selectedCategory;
+
             const name = p.name || "";
             const generic = p.generic_name || "";
             const sku = p.sku || "";
             const query = searchQuery.toLowerCase();
-            return name.toLowerCase().includes(query) ||
+            const matchesQuery = name.toLowerCase().includes(query) ||
                 generic.toLowerCase().includes(query) ||
                 sku.toLowerCase().includes(query);
+
+            return matchesCategory && matchesQuery;
         });
-    }, [products, searchQuery]);
+    }, [products, searchQuery, selectedCategory]);
 
     const tabs = [
         { id: "products", name: "Products", icon: PackageSearch },
-        { id: "batches", name: "Stock Batches", icon: Filter },
         { id: "categories", name: "Categories", icon: Layers },
         { id: "suppliers", name: "Suppliers", icon: Users },
         { id: "adjustments", name: "Adjustments", icon: ArrowRightLeft },
@@ -188,31 +198,46 @@ export default function InventoryPage() {
                     </p>
                 </div>
                 {!isFormOpen && (activeTab === "products" || activeTab === "categories") && authLib.hasPermission('create-catalog') && (
-                    <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }} className="flex-shrink-0">
-                        <Plus className="mr-2 h-4 w-4" /> Add {activeTab === "products" ? "Product" : "Category"}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <AddButton
+                            onClick={() => { setEditingItem(null); setIsViewOnly(false); setIsFormOpen(true); }}
+                            className="flex-shrink-0 shadow-lg shadow-indigo-500/20"
+                            title={`Add ${activeTab === "products" ? "Product" : "Category"}`}
+                            icon={<Plus aria-hidden="true" className="size-5" />}
+                        />
+                    </div>
                 )}
-                {activeTab === "suppliers" && authLib.hasPermission('create-suppliers') && (
-                    <Button onClick={() => { setEditingItem(null); setIsFormOpen(true); }} className="flex-shrink-0">
-                        <Plus className="mr-2 h-4 w-4" /> Add Supplier
-                    </Button>
+                {!isFormOpen && activeTab === "suppliers" && authLib.hasPermission('create-suppliers') && (
+                    <div className="flex items-center gap-3">
+                        <AddButton
+                            onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                            className="flex-shrink-0 shadow-lg shadow-indigo-500/20"
+                            title="Add Supplier"
+                            icon={<Plus aria-hidden="true" className="size-5" />}
+                        />
+                    </div>
                 )}
-                {activeTab === "adjustments" && authLib.hasPermission('adjust-stock') && (
-                    <Button onClick={() => setIsFormOpen(true)} className="flex-shrink-0">
-                        <ArrowRightLeft className="mr-2 h-4 w-4" /> New Adjustment
-                    </Button>
+                {!isFormOpen && activeTab === "adjustments" && authLib.hasPermission('adjust-stock') && (
+                    <div className="flex items-center gap-3">
+                        <AddButton
+                            onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                            className="flex-shrink-0 shadow-lg shadow-indigo-500/20"
+                            title="Add Adjustment"
+                            icon={<ArrowRightLeft aria-hidden="true" className="size-5" />}
+                        />
+                    </div>
                 )}
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 -mx-1 px-1">
+            <div className="flex flex-wrap gap-2 pb-2">
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => { setActiveTab(tab.id as TabType); setIsFormOpen(false); }}
-                        className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors border-b-2 -mb-px flex-shrink-0 ${activeTab === tab.id
-                            ? "border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
-                            : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        className={`flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium transition-all rounded-md flex-shrink-0 ${activeTab === tab.id
+                            ? "bg-emerald-600 text-white shadow-md"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                             }`}
                     >
                         <tab.icon className="h-4 w-4" />
@@ -223,23 +248,31 @@ export default function InventoryPage() {
             </div>
 
             <div className="mt-6">
-                {(isFormOpen && activeTab !== "batches") ? (
+                {isFormOpen ? (
                     <div className="animate-in slide-in-from-top-4 duration-300">
                         {activeTab === "products" && (
-                            <ProductForm
-                                initialData={editingItem}
-                                categories={categories}
-                                onSubmit={async (data) => {
-                                    if (editingItem) {
-                                        await productApi.update(editingItem.id, data);
-                                    } else {
-                                        await productApi.create(data);
-                                    }
-                                    setIsFormOpen(false);
-                                    loadInitialData();
-                                }}
-                                onCancel={() => setIsFormOpen(false)}
-                            />
+                            isViewOnly ? (
+                                <ProductView
+                                    product={editingItem}
+                                    categories={categories}
+                                    onClose={() => setIsFormOpen(false)}
+                                />
+                            ) : (
+                                <ProductForm
+                                    initialData={editingItem}
+                                    categories={categories}
+                                    onSubmit={async (data) => {
+                                        if (editingItem) {
+                                            await productApi.update(editingItem.id, data);
+                                        } else {
+                                            await productApi.create(data);
+                                        }
+                                        setIsFormOpen(false);
+                                        loadInitialData();
+                                    }}
+                                    onCancel={() => setIsFormOpen(false)}
+                                />
+                            )
                         )}
                         {activeTab === "categories" && (
                             <CategoryForm
@@ -288,17 +321,29 @@ export default function InventoryPage() {
                     <>
                         {activeTab === "products" && (
                             <Card>
-                                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 pb-4">
+                                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 pb-4">
                                     <CardTitle className="text-xl font-semibold">Product Catalog</CardTitle>
-                                    <div className="relative w-full sm:w-64">
-                                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                                        <Input
-                                            type="search"
-                                            placeholder="Search products..."
-                                            className="pl-8"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                        />
+                                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                                        <div className="w-full sm:w-48 z-10">
+                                            <SelectMenu
+                                                value={selectedCategory}
+                                                onChange={setSelectedCategory}
+                                                options={[
+                                                    { value: "all", label: "All Categories" },
+                                                    ...categories.map(c => ({ value: c.id, label: c.name }))
+                                                ]}
+                                            />
+                                        </div>
+                                        <div className="relative w-full sm:w-64">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                                            <Input
+                                                type="search"
+                                                placeholder="Search products..."
+                                                className="pl-8"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent>
@@ -327,8 +372,8 @@ export default function InventoryPage() {
                                                             <span>Stock: <span className={`font-bold ${calculateStock(p) < 10 ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}>{calculateStock(p)}</span></span>
                                                         </div>
                                                         <div className="flex gap-2 pt-1">
-                                                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewBatches(p.id)}>
-                                                                <Package className="h-3 w-3 mr-1 text-emerald-500" /> Batches
+                                                            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleViewProduct(p)}>
+                                                                <Eye className="h-3 w-3 mr-1 text-slate-500" /> View
                                                             </Button>
                                                             {authLib.hasPermission('update-catalog') && (
                                                                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleEditProduct(p)}>
@@ -384,8 +429,8 @@ export default function InventoryPage() {
                                                                 </td>
                                                                 <td className="px-4 py-3 text-center">
                                                                     <div className="flex justify-center space-x-1">
-                                                                        <Button variant="ghost" size="icon" title="View Batches" onClick={() => handleViewBatches(p.id)}>
-                                                                            <Package className="h-4 w-4 text-emerald-500" />
+                                                                        <Button variant="ghost" size="icon" title="View Product" onClick={() => handleViewProduct(p)}>
+                                                                            <Eye className="h-4 w-4 text-slate-500" />
                                                                         </Button>
                                                                         {authLib.hasPermission('update-catalog') && (
                                                                             <Button variant="ghost" size="icon" onClick={() => handleEditProduct(p)}>
@@ -444,7 +489,7 @@ export default function InventoryPage() {
                                                                             <Power className="h-4 w-4" />
                                                                         </Button>
                                                                         <Button variant="ghost" size="icon" onClick={() => { setEditingItem(c); setIsFormOpen(true); }} title="Edit">
-                                                                            <Edit className="h-4 w-4" />
+                                                                            <Edit className="h-4 w-4 text-blue-500" />
                                                                         </Button>
                                                                     </>
                                                                 )}
@@ -495,7 +540,7 @@ export default function InventoryPage() {
                                                                             <Power className="h-4 w-4" />
                                                                         </Button>
                                                                         <Button variant="ghost" size="icon" onClick={() => { setEditingItem(s); setIsFormOpen(true); }} title="Edit">
-                                                                            <Edit className="h-4 w-4" />
+                                                                            <Edit className="h-4 w-4 text-blue-500" />
                                                                         </Button>
                                                                     </>
                                                                 )}
@@ -573,93 +618,6 @@ export default function InventoryPage() {
                                 </CardContent>
                             </Card>
                         )}
-
-                        {activeTab === "batches" && (
-                            <div className="space-y-4">
-                                <Card>
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-lg">Select Product to View Batches</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <select
-                                            value={selectedProductId || ""}
-                                            onChange={e => {
-                                                const id = e.target.value;
-                                                setSelectedProductId(id);
-                                                if (id) loadBatches(id);
-                                            }}
-                                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                            <option value="">Choose a product...</option>
-                                            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                        </select>
-                                    </CardContent>
-                                </Card>
-
-                                {selectedProductId && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Manage Batches</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            {isFormOpen ? (
-                                                <BatchForm
-                                                    productName={products.find(p => p.id === selectedProductId)?.name || ""}
-                                                    suppliers={suppliers}
-                                                    initialData={editingItem}
-                                                    onSubmit={async (data) => {
-                                                        if (editingItem) {
-                                                            await productApi.updateBatch(editingItem.id, data);
-                                                        } else {
-                                                            await productApi.addBatch(selectedProductId!, data);
-                                                        }
-                                                        setIsFormOpen(false);
-                                                        setEditingItem(null);
-                                                        loadBatches(selectedProductId!);
-                                                        loadInitialData();
-                                                    }}
-                                                    onCancel={() => {
-                                                        setIsFormOpen(false);
-                                                        setEditingItem(null);
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-sm text-left">
-                                                        <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500">
-                                                            <tr>
-                                                                <th className="px-4 py-2">Batch #</th>
-                                                                <th className="px-4 py-2">Supplier</th>
-                                                                <th className="px-4 py-2">Expiry</th>
-                                                                <th className="px-4 py-2 text-right">Stock</th>
-                                                                <th className="px-4 py-2 text-right">Vendor Price ({getCurrencySymbol()})</th>
-                                                                <th className="px-4 py-2 text-right">Selling Price ({getCurrencySymbol()})</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y dark:divide-slate-800">
-                                                            {batches.map(b => (
-                                                                <tr key={b.id}>
-                                                                    <td className="px-4 py-3 font-mono text-xs">{b.batch_number}</td>
-                                                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{b.supplier?.name || "Unknown"}</td>
-                                                                    <td className="px-4 py-3">
-                                                                        <span className={isExpiring(b.expiry_date) ? "text-amber-500 font-bold" : ""}>
-                                                                            {new Date(b.expiry_date).toLocaleDateString()}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-right">{b.quantity}</td>
-                                                                    <td className="px-4 py-3 text-right">{formatNumber(b.purchase_price)}</td>
-                                                                    <td className="px-4 py-3 text-right">{formatNumber(b.selling_price)}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-                        )}
                     </>
                 )}
             </div>
@@ -667,26 +625,10 @@ export default function InventoryPage() {
         </div>
     );
 
-    async function loadBatches(id: string) {
-        setLoading(true);
-        try {
-            const data = await productApi.batches(id);
-            setBatches(data);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     function calculateStock(p: ApiProduct) {
         // Simple mock or compute if batches are loaded in p
         return p.batches?.reduce((sum, b) => sum + b.quantity, 0) || 0;
-    }
-
-    function isExpiring(date: string) {
-        const d = new Date(date);
-        const soon = new Date();
-        soon.setMonth(soon.getMonth() + 6);
-        return d < soon;
     }
 
     function getSellingPriceRange(p: ApiProduct) {

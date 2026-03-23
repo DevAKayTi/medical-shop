@@ -26,6 +26,7 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 export function SupplierForm({ onSubmit, onCancel, initialData }: Props) {
     const toast = useToast();
+
     const {
         register,
         handleSubmit,
@@ -38,7 +39,7 @@ export function SupplierForm({ onSubmit, onCancel, initialData }: Props) {
             phone: initialData?.phone ?? "",
             email: initialData?.email ?? "",
             address: initialData?.address ?? "",
-            is_active: initialData?.is_active ?? true,
+            is_active: initialData?.is_active ? true : false,
         },
     });
 
@@ -117,10 +118,21 @@ export function SupplierForm({ onSubmit, onCancel, initialData }: Props) {
                     {fieldError("address")}
                 </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : initialData ? "Save" : "Add"}
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto">
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving...
+                        </span>
+                    ) : initialData ? "Confirm Update" : "Create Supplier"}
                 </Button>
             </div>
         </form>

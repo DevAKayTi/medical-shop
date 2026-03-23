@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from '@headlessui/react';
 import { Input } from "@/components/ui/Input";
 
 export interface PrescriptionDetails {
@@ -60,11 +61,11 @@ export function PrescriptionForm({ onSave, onCancel, initialData }: Prescription
                 </div>
                 <div className="space-y-1">
                     <label className="text-xs font-medium">Prescribed Medicines</label>
-                    <textarea
+                    <Textarea
                         name="medicines"
                         value={formData.medicines}
                         onChange={handleChange}
-                        className="flex min-h-[60px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-50 dark:focus:ring-slate-400 dark:focus:ring-offset-slate-900"
+                        className="flex min-h-[60px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-50 dark:focus:ring-emerald-500 dark:focus:ring-offset-slate-900"
                         placeholder="List of medicines..."
                     />
                 </div>

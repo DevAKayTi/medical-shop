@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/Button";
@@ -30,6 +31,7 @@ export function CategoryForm({ categories, onSubmit, onCancel, initialData }: Pr
         handleSubmit,
         watch,
         setValue,
+        control,
         formState: { errors, isSubmitting },
     } = useForm<CategoryFormValues>({
         resolver: zodResolver(categorySchema),
@@ -99,23 +101,39 @@ export function CategoryForm({ categories, onSubmit, onCancel, initialData }: Pr
                     />
                     {fieldError("slug")}
                 </div>
-                <div className="space-y-1 sm:col-span-2">
+                <div className="space-y-1 sm:col-span-2 relative z-10">
                     <label className="text-sm font-medium">Parent Category</label>
-                    <select
-                        {...register("parent_id")}
-                        className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50"
-                    >
-                        <option value="">— None (top level) —</option>
-                        {categories.filter(c => c.id !== initialData?.id).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
+                    <Controller
+                        control={control}
+                        name="parent_id"
+                        render={({ field }) => (
+                            <SelectMenu
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                options={[
+                                    { value: "", label: "— None (top level) —" },
+                                    ...categories.filter(c => c.id !== initialData?.id).map(c => ({ value: c.id, label: c.name }))
+                                ]}
+                            />
+                        )}
+                    />
                 </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : initialData ? "Save" : "Add"}
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto">
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? (
+                        <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Saving...
+                        </span>
+                    ) : initialData ? "Confirm Update" : "Create Category"}
                 </Button>
             </div>
         </form>

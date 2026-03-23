@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+import { Textarea } from '@headlessui/react';
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -32,6 +34,7 @@ export function StockAdjustmentForm({ products, onSave, onCancel }: StockAdjustm
         handleSubmit,
         watch,
         setValue,
+        control,
         formState: { errors, isSubmitting },
     } = useForm<StockAdjustmentFormValues>({
         resolver: zodResolver(adjustmentSchema),
@@ -85,51 +88,66 @@ export function StockAdjustmentForm({ products, onSave, onCancel }: StockAdjustm
             <CardContent>
                 <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 z-30 relative">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Product *</label>
-                            <select
-                                {...register("product_id")}
-                                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
-                                aria-invalid={!!errors.product_id}
-                            >
-                                <option value="">Select Product...</option>
-                                {products.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
+                            <Controller
+                                control={control}
+                                name="product_id"
+                                render={({ field }) => (
+                                    <SelectMenu
+                                        value={field.value || ""}
+                                        onChange={field.onChange}
+                                        options={[
+                                            { value: "", label: "Select Product..." },
+                                            ...products.map(p => ({ value: p.id, label: p.name }))
+                                        ]}
+                                        className={errors.product_id ? "border-red-500 focus-visible:outline-red-500" : ""}
+                                    />
+                                )}
+                            />
                             {fieldError("product_id")}
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 z-20 relative">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Batch *</label>
-                            <select
-                                {...register("batch_id")}
-                                disabled={!watchProductId}
-                                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50 disabled:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
-                                aria-invalid={!!errors.batch_id}
-                            >
-                                <option value="">Select Batch...</option>
-                                {productBatches.map(b => (
-                                    <option key={b.id} value={b.id}>
-                                        {b.batch_number} (Qty: {b.quantity})
-                                    </option>
-                                ))}
-                            </select>
+                            <Controller
+                                control={control}
+                                name="batch_id"
+                                render={({ field }) => (
+                                    <SelectMenu
+                                        value={field.value || ""}
+                                        onChange={field.onChange}
+                                        disabled={!watchProductId}
+                                        options={[
+                                            { value: "", label: "Select Batch..." },
+                                            ...productBatches.map(b => ({ value: b.id, label: `${b.batch_number} (Qty: ${b.quantity})` }))
+                                        ]}
+                                        className={errors.batch_id ? "border-red-500 focus-visible:outline-red-500" : ""}
+                                    />
+                                )}
+                            />
                             {fieldError("batch_id")}
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 z-10 relative">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Adjustment Type *</label>
-                            <select
-                                {...register("type")}
-                                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
-                            >
-                                <option value="increase">Stock Increase (+)</option>
-                                <option value="decrease">Stock Decrease (-)</option>
-                                <option value="write_off">Write-Off (Damage/Expired)</option>
-                                <option value="correction">Correction</option>
-                            </select>
+                            <Controller
+                                control={control}
+                                name="type"
+                                render={({ field }) => (
+                                    <SelectMenu
+                                        value={field.value || "increase"}
+                                        onChange={field.onChange}
+                                        options={[
+                                            { value: "increase", label: "Stock Increase (+)" },
+                                            { value: "decrease", label: "Stock Decrease (-)" },
+                                            { value: "write_off", label: "Write-Off (Damage/Expired)" },
+                                            { value: "correction", label: "Correction" }
+                                        ]}
+                                    />
+                                )}
+                            />
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Quantity *</label>
@@ -146,21 +164,30 @@ export function StockAdjustmentForm({ products, onSave, onCancel }: StockAdjustm
 
                     <div className="space-y-1.5">
                         <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Reason / Remarks *</label>
-                        <textarea
+                        <Textarea
                             {...register("reason")}
                             placeholder="e.g., Damaged during transport, Stock count correction..."
-                            className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
+                            className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
                             aria-invalid={!!errors.reason}
                         />
                         {fieldError("reason")}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto">
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Processing..." : "Save Adjustment"}
+                        <Button
+                            type="submit"
+                            className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center gap-2">
+                                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Processing...
+                                </span>
+                            ) : "Save Adjustment"}
                         </Button>
                     </div>
                 </form>

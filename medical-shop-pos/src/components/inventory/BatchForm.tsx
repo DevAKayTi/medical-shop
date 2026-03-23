@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Select } from '@headlessui/react';
 import { Input } from "@/components/ui/Input";
 import { ApiProductBatch, ApiSupplier } from "@/lib/inventory";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -87,16 +88,16 @@ export function BatchForm({ productName, suppliers, initialData, onSubmit, onCan
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                     <label className="text-sm font-medium">Supplier (Who provided this batch?)</label>
-                    <select
+                    <Select
                         value={form.supplier_id}
                         onChange={e => set("supplier_id", e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:bg-slate-900"
+                        className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
                     >
                         <option value="">— Select Supplier —</option>
                         {suppliers.map((s: ApiSupplier) => (
                             <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
-                    </select>
+                    </Select>
                 </div>
                 <div className="space-y-1">
                     <label className="text-sm font-medium">Manufacture Date</label>

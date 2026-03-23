@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Product, SaleItem, ShopSettings, storageLib } from "@/lib/storage";
+import { Input } from '@/components/ui/Input';
 import { Button } from "@/components/ui/Button";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -110,7 +111,7 @@ export function BillingCart({ cart, onUpdateCart, onCheckout, products }: Billin
 
                             <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/50">
                                 <span className="text-xs text-slate-500">Discount: {settings.currencySymbol}</span>
-                                <input
+                                <Input
                                     type="number"
                                     step="0.01"
                                     min="0"

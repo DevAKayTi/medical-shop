@@ -1,5 +1,6 @@
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
+import { Select } from '@headlessui/react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiPurchase } from "@/lib/purchases";
 import { Button } from "@/components/ui/Button";
@@ -155,13 +156,13 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                             control={control}
                             name="status"
                             render={({ field }) => (
-                                <select
+                                <Select
                                     {...field}
-                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 >
                                     <option value="completed">Completed (Deduct stock now)</option>
                                     <option value="pending">Pending (Review later)</option>
-                                </select>
+                                </Select>
                             )}
                         />
                     </div>

@@ -1,5 +1,8 @@
 import { useEffect, useId } from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import { Textarea } from '@headlessui/react';
+import { SelectMenu } from "@/components/ui/SelectMenu";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/Button";
@@ -76,6 +79,7 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
         register,
         handleSubmit,
         reset,
+        control,
         setError,
         clearErrors,
         formState: { errors, isSubmitting, isDirty, isSubmitSuccessful },
@@ -173,8 +177,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
             </p>
         );
     };
-
-    const selectCls = "flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors";
     const errorCls = "border-red-500 focus:ring-red-500 focus:border-red-500";
 
     return (
@@ -264,31 +266,42 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                         />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 z-30 relative">
                         <label htmlFor={`${id}-medicine_type`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Medicine Type</label>
-                        <select
-                            {...register("medicine_type")}
-                            id={`${id}-medicine_type`}
-                            className={selectCls}
-                        >
-                            <option value="">— Select dosage form —</option>
-                            {MEDICINE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
+                        <Controller
+                            control={control}
+                            name="medicine_type"
+                            render={({ field }) => (
+                                <SelectMenu
+                                    value={field.value || ""}
+                                    onChange={field.onChange}
+                                    options={[
+                                        { value: "", label: "— Select dosage form —" },
+                                        ...MEDICINE_TYPES
+                                    ]}
+                                    className={errors.medicine_type ? errorCls : ""}
+                                />
+                            )}
+                        />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 z-20 relative">
                         <label htmlFor={`${id}-category_id`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Category</label>
-                        <select
-                            {...register("category_id")}
-                            id={`${id}-category_id`}
-                            className={errors.category_id ? `${selectCls} ${errorCls}` : selectCls}
-                            aria-invalid={!!errors.category_id}
-                        >
-                            <option value="">— No Category —</option>
-                            {categories.filter(c => c.is_active || c.id === initialData?.category_id).map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
+                        <Controller
+                            control={control}
+                            name="category_id"
+                            render={({ field }) => (
+                                <SelectMenu
+                                    value={field.value || ""}
+                                    onChange={field.onChange}
+                                    options={[
+                                        { value: "", label: "— No Category —" },
+                                        ...categories.filter(c => c.is_active || c.id === initialData?.category_id).map(c => ({ value: c.id, label: c.name }))
+                                    ]}
+                                    className={errors.category_id ? errorCls : ""}
+                                />
+                            )}
+                        />
                         {fieldError("category_id")}
                     </div>
                 </div>
@@ -329,18 +342,25 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                         />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 z-10 relative">
                         <label htmlFor={`${id}-unit`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                             Base Unit <span className="text-red-500">*</span>
                         </label>
-                        <select
-                            {...register("unit")}
-                            id={`${id}-unit`}
-                            className={errors.unit ? `${selectCls} ${errorCls}` : selectCls}
-                        >
-                            <option value="">— Select unit —</option>
-                            {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                        </select>
+                        <Controller
+                            control={control}
+                            name="unit"
+                            render={({ field }) => (
+                                <SelectMenu
+                                    value={field.value || ""}
+                                    onChange={field.onChange}
+                                    options={[
+                                        { value: "", label: "— Select unit —" },
+                                        ...UNITS
+                                    ]}
+                                    className={errors.unit ? errorCls : ""}
+                                />
+                            )}
+                        />
                         {fieldError("unit")}
                     </div>
                 </div>
@@ -349,11 +369,11 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
             {/* ── Descriptions ── */}
             <fieldset className="space-y-1.5" disabled={isSubmitting}>
                 <label htmlFor={`${id}-description`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Description / Usage Notes</label>
-                <textarea
+                <Textarea
                     {...register("description")}
                     id={`${id}-description`}
                     rows={3}
-                    className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                    className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
                     placeholder="Provide additional details about the product..."
                 />
             </fieldset>
@@ -361,37 +381,43 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
             {/* ── Flags ── */}
             <fieldset className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800" disabled={isSubmitting}>
                 <label className="flex items-center gap-3 cursor-pointer group/flag">
-                    <input
-                        type="checkbox"
-                        {...register("is_controlled_drug")}
-                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    <Controller
+                        control={control}
+                        name="is_controlled_drug"
+                        render={({ field: { onChange, value } }) => (
+                            <Checkbox checked={value} onChange={onChange} />
+                        )}
                     />
                     <div className="space-y-0.5">
-                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Controlled Drug</span>
+                        <span className="text-sm font-semibold block group-hover/flag:text-emerald-600 transition-colors">Controlled Drug</span>
                         <span className="text-[10px] text-slate-500 hidden sm:block">Schedule H / Narcotic</span>
                     </div>
                 </label>
 
                 <label className="flex items-center gap-3 cursor-pointer group/flag">
-                    <input
-                        type="checkbox"
-                        {...register("prescription_required")}
-                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    <Controller
+                        control={control}
+                        name="prescription_required"
+                        render={({ field: { onChange, value } }) => (
+                            <Checkbox checked={value} onChange={onChange} />
+                        )}
                     />
                     <div className="space-y-0.5">
-                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Rx Required</span>
+                        <span className="text-sm font-semibold block group-hover/flag:text-emerald-600 transition-colors">Rx Required</span>
                         <span className="text-[10px] text-slate-500 hidden sm:block">Requires Prescription</span>
                     </div>
                 </label>
 
                 <label className="flex items-center gap-3 cursor-pointer group/flag">
-                    <input
-                        type="checkbox"
-                        {...register("is_active")}
-                        className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer"
+                    <Controller
+                        control={control}
+                        name="is_active"
+                        render={({ field: { onChange, value } }) => (
+                            <Checkbox checked={value} onChange={onChange} />
+                        )}
                     />
                     <div className="space-y-0.5">
-                        <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors">Active</span>
+                        <span className="text-sm font-semibold block group-hover/flag:text-emerald-600 transition-colors">Active</span>
                         <span className="text-[10px] text-slate-500 hidden sm:block">Visible in POS & Store</span>
                     </div>
                 </label>

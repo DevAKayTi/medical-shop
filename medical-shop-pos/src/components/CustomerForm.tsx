@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Textarea } from '@headlessui/react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Customer } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
@@ -96,9 +97,9 @@ export function CustomerForm({ initialData, onSubmit, onCancel }: CustomerFormPr
 
                 <div className="flex flex-col gap-1.5 md:col-span-2">
                     <label className="text-sm font-medium">Address</label>
-                    <textarea
+                    <Textarea
                         {...register("address")}
-                        className={`flex min-h-[80px] w-full rounded-md border ${errors.address ? "border-red-500" : "border-slate-300"} bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-50 dark:focus:ring-slate-400 dark:focus:ring-offset-slate-900`}
+                        className={`flex min-h-[80px] w-full rounded-md border ${errors.address ? "border-red-500" : "border-slate-300"} bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-50 dark:focus:ring-emerald-500 dark:focus:ring-offset-slate-900`}
                         placeholder="e.g. 123 Main St, City, Country"
                     />
                     <FieldError message={errors.address?.message} />
