@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
-import { Select } from '@headlessui/react';
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiSupplier, ApiProduct, ApiProductBatch, productApi } from "@/lib/inventory";
@@ -244,15 +244,17 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                             control={control}
                             name="supplier_id"
                             render={({ field }) => (
-                                <Select
-                                    {...field}
-                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option value="">Select supplier…</option>
-                                    {suppliers.filter(s => s.is_active).map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </Select>
+                                <SelectMenu
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    options={[
+                                        { value: "", label: "Select supplier…" },
+                                        ...suppliers.filter(s => s.is_active).map(s => ({
+                                            value: s.id,
+                                            label: s.name,
+                                        }))
+                                    ]}
+                                />
                             )}
                         />
                         <FieldError message={errors.supplier_id?.message} />
@@ -278,13 +280,14 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                             control={control}
                             name="status"
                             render={({ field }) => (
-                                <Select
-                                    {...field}
-                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option value="pending">Pending (order placed)</option>
-                                    <option value="received">Received (stock now in)</option>
-                                </Select>
+                                <SelectMenu
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    options={[
+                                        { value: "pending", label: "Pending (order placed)" },
+                                        { value: "received", label: "Received (stock now in)" }
+                                    ]}
+                                />
                             )}
                         />
                     </div>
@@ -322,7 +325,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                         key={p.id}
                                         type="button"
                                         onClick={() => addProduct(p)}
-                                        className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left"
+                                        className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left"
                                     >
                                         <span>
                                             <span className="font-medium">{p.name}</span>
@@ -353,7 +356,7 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                             const existingBatches: ApiProductBatch[] = watchedItems?.[idx]?.existingBatches ?? [];
 
                             return (
-                                <div key={field.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3 hover:border-blue-300 transition-colors">
+                                <div key={field.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 space-y-3 hover:border-emerald-300 transition-colors">
                                     {/* Product name & remove */}
                                     <div className="flex items-center justify-between">
                                         <p className="font-medium text-slate-800 dark:text-slate-100">
@@ -370,14 +373,14 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                             <button
                                                 type="button"
                                                 onClick={() => handleBatchModeSwitch(idx, "existing")}
-                                                className={`px-3 py-1.5 transition-colors ${mode === "existing" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"}`}
+                                                className={`px-3 py-1.5 transition-colors ${mode === "existing" ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"}`}
                                             >
                                                 Use Existing Batch
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => handleBatchModeSwitch(idx, "new")}
-                                                className={`px-3 py-1.5 transition-colors ${mode === "new" ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"}`}
+                                                className={`px-3 py-1.5 transition-colors ${mode === "new" ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50"}`}
                                             >
                                                 New Batch
                                             </button>
@@ -430,21 +433,20 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                                                 control={control}
                                                 name={`items.${idx}.batch_id` as any}
                                                 render={({ field: f }) => (
-                                                    <Select
+                                                    <SelectMenu
                                                         value={f.value ?? ""}
-                                                        onChange={e => {
-                                                            f.onChange(e.target.value);
-                                                            handleBatchSelect(idx, e.target.value);
+                                                        onChange={val => {
+                                                            f.onChange(val);
+                                                            handleBatchSelect(idx, val);
                                                         }}
-                                                        className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                                    >
-                                                        <option value="">Choose a batch…</option>
-                                                        {existingBatches.map(b => (
-                                                            <option key={b.id} value={b.id}>
-                                                                {b.batch_number} — Exp: {b.expiry_date ?? "N/A"} (Stock: {b.quantity})
-                                                            </option>
-                                                        ))}
-                                                    </Select>
+                                                        options={[
+                                                            { value: "", label: "Choose a batch…" },
+                                                            ...existingBatches.map(b => ({
+                                                                value: b.id,
+                                                                label: `${b.batch_number} — Exp: ${b.expiry_date ?? "N/A"} (Stock: ${b.quantity})`
+                                                            }))
+                                                        ]}
+                                                    />
                                                 )}
                                             />
                                             <FieldError message={getItemError(idx, "batch_id")} />

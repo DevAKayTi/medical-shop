@@ -13,10 +13,11 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
-import { authLib } from "@/lib/auth";
 import { AddButton } from "@/components/ui/IconButton";
+import { IconCard } from "@/components/ui/IconCard";
 
-type ViewMode = "list" | "new" | "detail" | "return" | "return-list";
+type ViewMode = "list" | "new" | "detail" | "return";
+type TabMode = "purchases" | "returns";
 
 const StatusBadge = ({ status }: { status: string }) => {
     const map: Record<string, string> = {
@@ -56,6 +57,7 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
 
 export default function PurchasesPage() {
     const [view, setView] = useState<ViewMode>("list");
+    const [activeTab, setActiveTab] = useState<TabMode>("purchases");
     const [purchases, setPurchases] = useState<ApiPurchase[]>([]);
     const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
     const [products, setProducts] = useState<ApiProduct[]>([]);
@@ -150,9 +152,9 @@ export default function PurchasesPage() {
     const handleCreateReturn = async (data: any) => {
         try {
             await purchaseReturnApi.create(data);
-            // Form handles its own success toast
             await loadData();
             setView("list");
+            setActiveTab("returns");
         } catch (err) {
             console.error(err);
             throw err;
@@ -241,18 +243,12 @@ export default function PurchasesPage() {
     if (view === "new") {
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
-                        <ChevronLeft className="h-4 w-4" /> Back to Purchases
-                    </button>
-                </div>
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">New Purchase Order</h1>
                 <NewPurchaseForm
                     suppliers={suppliers}
                     products={products}
                     onSubmit={async (data) => {
                         await purchaseApi.create(data);
-                        // Form handles its own success toast
                         await loadData();
                         setView("list");
                     }}
@@ -286,7 +282,6 @@ export default function PurchasesPage() {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                        {/* Payment Status Updater — Purchase: pending | paid */}
                         <div className="flex items-center gap-1.5">
                             <CreditCard className="h-4 w-4 text-slate-400" />
                             {p.payment_status === 'paid' ? (
@@ -327,7 +322,6 @@ export default function PurchasesPage() {
                     </div>
                 </div>
 
-                {/* Items table */}
                 <Card>
                     <CardHeader><CardTitle className="text-base">Order Items ({p.items?.length || 0})</CardTitle></CardHeader>
                     <CardContent>
@@ -404,178 +398,12 @@ export default function PurchasesPage() {
         );
     }
 
-    if (view === "return-list") {
-        return (
-            <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center justify-between">
-                    <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-                        <ChevronLeft className="h-4 w-4" /> Back to Purchases
-                    </button>
-                    <h1 className="text-2xl font-bold">Purchase Returns</h1>
-                </div>
-
-                <Card>
-                    <CardContent className="p-0">
-                        {returns.length === 0 ? (
-                            <div className="py-16 text-center text-slate-400">No returns found.</div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                                        <tr>
-                                            <th className="px-5 py-3">Return #</th>
-                                            <th className="px-5 py-3">Purchase #</th>
-                                            <th className="px-5 py-3">Supplier</th>
-                                            <th className="px-5 py-3">Status</th>
-                                            <th className="px-5 py-3">Payment</th>
-                                            <th className="px-5 py-3 text-right">TOTAL (MMK)</th>
-                                            <th className="px-5 py-3 text-center">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                                        {returns.map(r => (
-                                            <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
-                                                <td className="px-5 py-3.5 font-mono text-xs font-medium text-amber-600">{r.return_number}</td>
-                                                <td className="px-5 py-3.5 text-xs text-slate-500">{r.purchase?.purchase_number || "—"}</td>
-                                                <td className="px-5 py-3.5 font-medium">{r.supplier?.name || "—"}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                        {r.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <PaymentStatusBadge status={r.payment_status} />
-                                                </td>
-                                                <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(r.total))}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex justify-center gap-1">
-                                                        <Button variant="ghost" size="icon" title="View Detail" onClick={() => openReturnDetail(r)}>
-                                                            <Eye className="h-4 w-4 text-blue-500" />
-                                                        </Button>
-                                                        {r.status === 'pending' && (
-                                                            <Button variant="ghost" size="sm" onClick={() => handleCompleteReturn(r.id)} disabled={saving} className="text-green-600">
-                                                                Complete
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Return Detail Modal */}
-                {selectedReturn && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedReturn(null)}>
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                            {/* Modal Header */}
-                            <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-800">
-                                <div>
-                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white font-mono">{selectedReturn.return_number}</h2>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase ${selectedReturn.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                                            }`}>{selectedReturn.status}</span>
-                                        <PaymentStatusBadge status={selectedReturn.payment_status} />
-                                    </div>
-                                </div>
-                                <button onClick={() => setSelectedReturn(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
-                            </div>
-
-                            <div className="p-6 space-y-5">
-                                {/* Meta info */}
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Purchase Order</p>
-                                        <p className="font-mono font-medium text-blue-600">{selectedReturn.purchase?.purchase_number || "—"}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Supplier</p>
-                                        <p className="font-medium">{selectedReturn.supplier?.name || "—"}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Date</p>
-                                        <p>{new Date(selectedReturn.created_at).toLocaleDateString()}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Returned By</p>
-                                        <p>{selectedReturn.returnedBy?.name || "—"}</p>
-                                    </div>
-                                    {selectedReturn.reason && (
-                                        <div className="col-span-2">
-                                            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Reason</p>
-                                            <p className="text-slate-600 dark:text-slate-300">{selectedReturn.reason}</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Items table */}
-                                {selectedReturn.items && selectedReturn.items.length > 0 && (
-                                    <div>
-                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Return Items ({selectedReturn.items.length})</p>
-                                        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-                                            <table className="w-full text-sm text-left">
-                                                <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500">
-                                                    <tr>
-                                                        <th className="px-3 py-2">Product</th>
-                                                        <th className="px-3 py-2 text-right">Qty</th>
-                                                        <th className="px-3 py-2 text-right">Price</th>
-                                                        <th className="px-3 py-2 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                    {selectedReturn.items.map((item, i) => (
-                                                        <tr key={i}>
-                                                            <td className="px-3 py-2.5 font-medium">{item.product?.name || "—"}</td>
-                                                            <td className="px-3 py-2.5 text-right">{item.quantity}</td>
-                                                            <td className="px-3 py-2.5 text-right">{formatCurrency(Number(item.price))}</td>
-                                                            <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(Number(item.total))}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <div className="text-right mt-2">
-                                            <span className="text-xl font-bold text-slate-900 dark:text-white">Total: {formatCurrency(Number(selectedReturn.total))}</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Payment Status Update */}
-                                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">Payment Status</p>
-                                    {selectedReturn.payment_status === 'paid' ? (
-                                        <div className="flex items-center gap-2">
-                                            <PaymentStatusBadge status="paid" />
-                                            <span className="text-xs text-green-600 font-medium">Locked — cannot revert to unpaid</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-3">
-                                            <PaymentStatusBadge status={selectedReturn.payment_status} />
-                                            <Button
-                                                size="sm"
-                                                disabled={updatingReturnPayment}
-                                                onClick={() => handleUpdateReturnPaymentStatus(selectedReturn.id, 'paid')}
-                                                className="bg-green-600 hover:bg-green-700 text-white"
-                                            >
-                                                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                                                Mark Paid
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    }
-
     // ─── List view ────────────────────────────────────────────────────
+
+    const tabs = [
+        { id: "purchases", name: "Purchases", icon: ShoppingCart },
+        { id: "returns", name: "Returns", icon: Undo2 },
+    ];
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -585,192 +413,327 @@ export default function PurchasesPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Purchases</h1>
                     <p className="text-slate-500 dark:text-slate-400">Manage purchase orders and supplier deliveries.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setView("return-list")} className="flex-shrink-0">
-                        <List className="mr-2 h-4 w-4" /> View Returns
-                    </Button>
-                    <AddButton
-                        title="New Purchase Order"
-                        icon={<Plus className="h-4 w-4" />}
-                        onClick={() => setView("new")}
-                    />
+
+                {activeTab === "purchases" && (
+                    <div className="flex gap-2">
+                        <AddButton
+                            title="New Purchase Order"
+                            icon={<Plus className="h-4 w-4" />}
+                            onClick={() => setView("new")}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap gap-2 pb-2">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as TabMode)}
+                        className={`flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium transition-all rounded-md flex-shrink-0 ${activeTab === tab.id
+                            ? "bg-emerald-600 text-white shadow-md"
+                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                            }`}
+                    >
+                        <tab.icon className="h-4 w-4" />
+                        <span className="hidden sm:inline">{tab.name}</span>
+                        <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
+                    </button>
+                ))}
+            </div>
+
+
+
+
+
+            {/* Tab Views */}
+            <div className="mt-2">
+                {activeTab === "purchases" && (
+                    <>
+                        {/* Stats cards */}
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                            <IconCard
+                                name="Total Orders"
+                                stat={stats.total}
+                                icon={ShoppingCart}
+                                iconBgClassName="bg-blue-300"
+                            />
+                            <IconCard
+                                name="Pending"
+                                stat={stats.pending}
+                                icon={Clock}
+                                iconBgClassName="bg-amber-300"
+                            />
+                            <IconCard
+                                name="Received"
+                                stat={stats.received}
+                                icon={Package}
+                                iconBgClassName="bg-green-300"
+                            />
+                            <IconCard
+                                name="Unpaid"
+                                stat={stats.unpaid}
+                                icon={CreditCard}
+                                iconBgClassName="bg-orange-300"
+                            />
+                            <IconCard
+                                name="Pending Returns"
+                                stat={stats.pendingReturns}
+                                icon={Undo2}
+                                iconBgClassName="bg-red-300"
+                            />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3 flex-wrap my-6">
+                            <div className="relative flex-1 max-w-sm">
+                                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                                <Input
+                                    className="pl-9"
+                                    placeholder="Search by PO# or supplier…"
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                />
+                            </div>
+                            <select
+                                value={filterStatus}
+                                onChange={e => setFilterStatus(e.target.value)}
+                                className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All Order Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="received">Received</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <select
+                                value={filterPaymentStatus}
+                                onChange={e => setFilterPaymentStatus(e.target.value)}
+                                className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All Payment Statuses</option>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="paid">Paid</option>
+                                <option value="partial">Partial</option>
+                            </select>
+                            <Button variant="outline" onClick={loadData} title="Refresh">
+                                <RefreshCw className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <Card>
+                            <CardContent className="p-0">
+                                {loading ? (
+                                    <div className="py-16 text-center text-slate-400">Loading purchases…</div>
+                                ) : filteredPurchases.length === 0 ? (
+                                    <div className="py-16 text-center">
+                                        <ShoppingCart className="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                        <p className="text-slate-500">No purchase orders found.</p>
+                                        <p className="text-xs text-slate-400 mt-1">Click "New Purchase Order" to get started.</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                                <tr>
+                                                    <th className="px-5 py-3">PO Number</th>
+                                                    <th className="px-5 py-3">Supplier</th>
+                                                    <th className="px-5 py-3">Status</th>
+                                                    <th className="px-5 py-3">Payment</th>
+                                                    <th className="px-5 py-3">Date</th>
+                                                    <th className="px-5 py-3 text-right">TOTAL (MMK)</th>
+                                                    <th className="px-5 py-3 text-center">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                                {filteredPurchases.map(p => (
+                                                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                                                        <td className="px-5 py-3.5 font-mono text-xs font-medium text-blue-600 dark:text-blue-400">{p.purchase_number}</td>
+                                                        <td className="px-5 py-3.5 font-medium">{p.supplier?.name || "—"}</td>
+                                                        <td className="px-5 py-3.5"><StatusBadge status={p.status} /></td>
+                                                        <td className="px-5 py-3.5"><PaymentStatusBadge status={p.payment_status} /></td>
+                                                        <td className="px-5 py-3.5 text-slate-500 text-xs">
+                                                            {p.purchased_at ? new Date(p.purchased_at).toLocaleDateString() : new Date(p.created_at).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(p.total))}</td>
+                                                        <td className="px-5 py-3.5">
+                                                            <div className="flex justify-center gap-1">
+                                                                {p.status === 'pending' && (
+                                                                    <Button variant="ghost" size="icon" title="Mark Received" onClick={() => handleMarkReceived(p.id)} disabled={saving}>
+                                                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                                                    </Button>
+                                                                )}
+                                                                <Button variant="ghost" size="icon" title="View Details" onClick={() => openDetail(p)}>
+                                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </>
+                )}
+
+                {activeTab === "returns" && (
+                    <Card>
+                        <CardContent className="p-0">
+                            {returns.length === 0 ? (
+                                <div className="py-16 text-center text-slate-400">No returns found.</div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                            <tr>
+                                                <th className="px-5 py-3">Return #</th>
+                                                <th className="px-5 py-3">Purchase #</th>
+                                                <th className="px-5 py-3">Supplier</th>
+                                                <th className="px-5 py-3">Status</th>
+                                                <th className="px-5 py-3">Payment</th>
+                                                <th className="px-5 py-3 text-right">TOTAL (MMK)</th>
+                                                <th className="px-5 py-3 text-center">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                                            {returns.map(r => (
+                                                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                                                    <td className="px-5 py-3.5 font-mono text-xs font-medium text-amber-600">{r.return_number}</td>
+                                                    <td className="px-5 py-3.5 text-xs text-slate-500">{r.purchase?.purchase_number || "—"}</td>
+                                                    <td className="px-5 py-3.5 font-medium">{r.supplier?.name || "—"}</td>
+                                                    <td className="px-5 py-3.5">
+                                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                            {r.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <PaymentStatusBadge status={r.payment_status} />
+                                                    </td>
+                                                    <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(r.total))}</td>
+                                                    <td className="px-5 py-3.5">
+                                                        <div className="flex justify-center gap-1">
+                                                            <Button variant="ghost" size="icon" title="View Detail" onClick={() => openReturnDetail(r)}>
+                                                                <Eye className="h-4 w-4 text-blue-500" />
+                                                            </Button>
+                                                            {r.status === 'pending' && (
+                                                                <Button variant="ghost" size="sm" onClick={() => handleCompleteReturn(r.id)} disabled={saving} className="text-green-600">
+                                                                    Complete
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {/* Return Detail Modal */}
+            {selectedReturn && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedReturn(null)}>
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-800">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white font-mono">{selectedReturn.return_number}</h2>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase ${selectedReturn.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                        }`}>{selectedReturn.status}</span>
+                                    <PaymentStatusBadge status={selectedReturn.payment_status} />
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedReturn(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Purchase Order</p>
+                                    <p className="font-mono font-medium text-blue-600">{selectedReturn.purchase?.purchase_number || "—"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Supplier</p>
+                                    <p className="font-medium">{selectedReturn.supplier?.name || "—"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Date</p>
+                                    <p>{new Date(selectedReturn.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Returned By</p>
+                                    <p>{selectedReturn.returnedBy?.name || "—"}</p>
+                                </div>
+                                {selectedReturn.reason && (
+                                    <div className="col-span-2">
+                                        <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Reason</p>
+                                        <p className="text-slate-600 dark:text-slate-300">{selectedReturn.reason}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {selectedReturn.items && selectedReturn.items.length > 0 && (
+                                <div>
+                                    <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Return Items ({selectedReturn.items.length})</p>
+                                    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500">
+                                                <tr>
+                                                    <th className="px-3 py-2">Product</th>
+                                                    <th className="px-3 py-2 text-right">Qty</th>
+                                                    <th className="px-3 py-2 text-right">Price</th>
+                                                    <th className="px-3 py-2 text-right">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                {selectedReturn.items.map((item, i) => (
+                                                    <tr key={i}>
+                                                        <td className="px-3 py-2.5 font-medium">{item.product?.name || "—"}</td>
+                                                        <td className="px-3 py-2.5 text-right">{item.quantity}</td>
+                                                        <td className="px-3 py-2.5 text-right">{formatCurrency(Number(item.price))}</td>
+                                                        <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(Number(item.total))}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="text-right mt-2">
+                                        <span className="text-xl font-bold text-slate-900 dark:text-white">Total: {formatCurrency(Number(selectedReturn.total))}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                                <p className="text-xs text-slate-400 uppercase tracking-wide mb-3">Payment Status</p>
+                                {selectedReturn.payment_status === 'paid' ? (
+                                    <div className="flex items-center gap-2">
+                                        <PaymentStatusBadge status="paid" />
+                                        <span className="text-xs text-green-600 font-medium">Locked — cannot revert to unpaid</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3">
+                                        <PaymentStatusBadge status={selectedReturn.payment_status} />
+                                        <Button
+                                            size="sm"
+                                            disabled={updatingReturnPayment}
+                                            onClick={() => handleUpdateReturnPaymentStatus(selectedReturn.id, 'paid')}
+                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                        >
+                                            <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                                            Mark Paid
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                <ShoppingCart className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Total Orders</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                                <Clock className="h-5 w-5 text-amber-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Pending</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pending}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                                <Package className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Received</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.received}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
-                                <CreditCard className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Unpaid</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.unpaid}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                                <Undo2 className="h-5 w-5 text-red-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Pending Returns</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pendingReturns}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-5">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                                <Truck className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Total Purchase Value</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(stats.totalValue)}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <Input
-                        className="pl-9"
-                        placeholder="Search by PO# or supplier…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                    />
-                </div>
-                <select
-                    value={filterStatus}
-                    onChange={e => setFilterStatus(e.target.value)}
-                    className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">All Order Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="received">Received</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-                <select
-                    value={filterPaymentStatus}
-                    onChange={e => setFilterPaymentStatus(e.target.value)}
-                    className="h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">All Payment Statuses</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="paid">Paid</option>
-                    <option value="partial">Partial</option>
-                </select>
-                <Button variant="outline" onClick={loadData} title="Refresh">
-                    <RefreshCw className="h-4 w-4" />
-                </Button>
-            </div>
-
-            {/* Table */}
-            <Card>
-                <CardContent className="p-0">
-                    {loading ? (
-                        <div className="py-16 text-center text-slate-400">Loading purchases…</div>
-                    ) : filteredPurchases.length === 0 ? (
-                        <div className="py-16 text-center">
-                            <ShoppingCart className="mx-auto h-10 w-10 text-slate-300 mb-3" />
-                            <p className="text-slate-500">No purchase orders found.</p>
-                            <p className="text-xs text-slate-400 mt-1">Click "New Purchase Order" to get started.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 border-b border-slate-200 dark:border-slate-800">
-                                    <tr>
-                                        <th className="px-5 py-3">PO Number</th>
-                                        <th className="px-5 py-3">Supplier</th>
-                                        <th className="px-5 py-3">Status</th>
-                                        <th className="px-5 py-3">Payment</th>
-                                        <th className="px-5 py-3">Date</th>
-                                        <th className="px-5 py-3 text-right">TOTAL (MMK)</th>
-                                        <th className="px-5 py-3 text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                                    {filteredPurchases.map(p => (
-                                        <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
-                                            <td className="px-5 py-3.5 font-mono text-xs font-medium text-blue-600 dark:text-blue-400">{p.purchase_number}</td>
-                                            <td className="px-5 py-3.5 font-medium">{p.supplier?.name || "—"}</td>
-                                            <td className="px-5 py-3.5"><StatusBadge status={p.status} /></td>
-                                            <td className="px-5 py-3.5"><PaymentStatusBadge status={p.payment_status} /></td>
-                                            <td className="px-5 py-3.5 text-slate-500 text-xs">
-                                                {p.purchased_at ? new Date(p.purchased_at).toLocaleDateString() : new Date(p.created_at).toLocaleDateString()}
-                                            </td>
-                                            <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(p.total))}</td>
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex justify-center gap-1">
-                                                    <Button variant="ghost" size="icon" title="View Details" onClick={() => openDetail(p)}>
-                                                        <Eye className="h-4 w-4 text-blue-500" />
-                                                    </Button>
-                                                    {p.status === 'pending' && (
-                                                        <Button variant="ghost" size="icon" title="Mark Received" onClick={() => handleMarkReceived(p.id)} disabled={saving}>
-                                                            <CheckCircle className="h-4 w-4 text-green-500" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            )}
 
             <ConfirmDialog />
         </div>
