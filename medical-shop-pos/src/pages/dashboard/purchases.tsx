@@ -262,15 +262,13 @@ export default function PurchasesPage() {
         const p = selectedPurchase;
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center justify-between">
-                    <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-                        <ChevronLeft className="h-4 w-4" /> Back to Purchases
-                    </button>
+                {/* <div className="flex items-center justify-between">
+                    
                     <div className="flex items-center gap-2">
                         <StatusBadge status={p.status} />
                         <PaymentStatusBadge status={p.payment_status} />
                     </div>
-                </div>
+                </div> */}
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -282,43 +280,17 @@ export default function PurchasesPage() {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                        <div className="flex items-center gap-1.5">
-                            <CreditCard className="h-4 w-4 text-slate-400" />
-                            {p.payment_status === 'paid' ? (
-                                <span className="inline-flex items-center gap-1 h-8 rounded-md border border-green-300 bg-green-50 dark:bg-green-900/20 px-2 text-xs font-semibold text-green-700 dark:text-green-400">
-                                    <CheckCircle className="h-3 w-3" /> Paid — locked
-                                </span>
-                            ) : (
-                                <select
-                                    value={p.payment_status}
-                                    disabled={updatingPayment}
-                                    onChange={e => handleUpdatePaymentStatus(p.id, e.target.value as any)}
-                                    className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                                >
-                                    <option value="unpaid">Unpaid</option>
-                                    <option value="paid">Paid</option>
-                                    <option value="partial">Partial</option>
-                                </select>
-                            )}
-                        </div>
-                        {p.status === 'pending' && (
-                            <>
-                                <Button onClick={() => handleMarkReceived(p.id)} disabled={saving} className="bg-green-600 hover:bg-green-700">
-                                    <Truck className="h-4 w-4 mr-2" /> Mark Received
-                                </Button>
-                                <Button variant="outline" onClick={() => handleDelete(p.id)} className="text-red-500 border-red-300 hover:bg-red-50">
-                                    <XCircle className="h-4 w-4 mr-2" /> Cancel Order
-                                </Button>
-                            </>
-                        )}
-                        {p.status === 'received' && (
+                        <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                            <ChevronLeft className="h-4 w-4" /> Back to Purchases
+                        </button>
+                        {/* {p.status === 'received' && (
                             <Button onClick={() => {
                                 setSelectedPurchase(p);
                                 setView("return");
                             }} variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50">
                                 <Undo2 className="h-4 w-4 mr-2" /> Return Items
                             </Button>
-                        )}
+                        )} */}
                     </div>
                 </div>
 
@@ -368,6 +340,38 @@ export default function PurchasesPage() {
                         </div>
                     </CardContent>
                 </Card>
+                <div className="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
+                    <div className="px-4 py-5 sm:p-6">
+                        <div className="sm:flex sm:items-start sm:justify-between">
+                            <div>
+                                <div className="flex items-center gap-2"><h3 className="text-base font-semibold text-gray-900 dark:text-white">Manage subscription</h3><StatusBadge status={p.status} /></div>
+                                <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
+                                    <p>
+                                        Lorem ipsum dolor sit amet consectetur adipisicing elit. Recusandae voluptatibus corrupti atque
+                                        repudiandae nam.
+                                    </p>
+                                </div>
+                            </div>
+                            {p.payment_status === 'paid' ? (
+                                <span className="inline-flex items-center gap-1 h-8 rounded-md border border-green-300 bg-green-50 dark:bg-green-900/20 px-2 text-xs font-semibold text-green-700 dark:text-green-400">
+                                    <CheckCircle className="h-3 w-3" /> Paid — locked
+                                </span>
+                            ) : (
+                                <select
+                                    value={p.payment_status}
+                                    disabled={updatingPayment}
+                                    onChange={e => handleUpdatePaymentStatus(p.id, e.target.value as any)}
+                                    className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                >
+                                    <option value="unpaid">Unpaid</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="partial">Partial</option>
+                                </select>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
 
                 {p.notes && (
                     <Card>
@@ -457,31 +461,31 @@ export default function PurchasesPage() {
                                 name="Total Orders"
                                 stat={stats.total}
                                 icon={ShoppingCart}
-                                iconBgClassName="bg-blue-300"
+                                iconBgClassName="bg-blue-800"
                             />
                             <IconCard
                                 name="Pending"
                                 stat={stats.pending}
                                 icon={Clock}
-                                iconBgClassName="bg-amber-300"
+                                iconBgClassName="bg-amber-800"
                             />
                             <IconCard
                                 name="Received"
                                 stat={stats.received}
                                 icon={Package}
-                                iconBgClassName="bg-green-300"
+                                iconBgClassName="bg-green-800"
                             />
                             <IconCard
                                 name="Unpaid"
                                 stat={stats.unpaid}
                                 icon={CreditCard}
-                                iconBgClassName="bg-orange-300"
+                                iconBgClassName="bg-orange-800"
                             />
                             <IconCard
                                 name="Pending Returns"
                                 stat={stats.pendingReturns}
                                 icon={Undo2}
-                                iconBgClassName="bg-red-300"
+                                iconBgClassName="bg-red-800"
                             />
                         </div>
 
@@ -556,15 +560,15 @@ export default function PurchasesPage() {
                                                         </td>
                                                         <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(p.total))}</td>
                                                         <td className="px-5 py-3.5">
-                                                            <div className="flex justify-center gap-1">
+                                                            <div className="flex justify-start gap-1">
+                                                                <Button variant="ghost" size="icon" title="View Details" onClick={() => openDetail(p)}>
+                                                                    <Eye className="h-4 w-4 text-blue-500" />
+                                                                </Button>
                                                                 {p.status === 'pending' && (
                                                                     <Button variant="ghost" size="icon" title="Mark Received" onClick={() => handleMarkReceived(p.id)} disabled={saving}>
                                                                         <CheckCircle className="h-4 w-4 text-green-500" />
                                                                     </Button>
                                                                 )}
-                                                                <Button variant="ghost" size="icon" title="View Details" onClick={() => openDetail(p)}>
-                                                                    <Eye className="h-4 w-4 text-blue-500" />
-                                                                </Button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -613,7 +617,7 @@ export default function PurchasesPage() {
                                                     </td>
                                                     <td className="px-5 py-3.5 text-right font-semibold">{formatNumber(Number(r.total))}</td>
                                                     <td className="px-5 py-3.5">
-                                                        <div className="flex justify-center gap-1">
+                                                        <div className="flex justify-end gap-1">
                                                             <Button variant="ghost" size="icon" title="View Detail" onClick={() => openReturnDetail(r)}>
                                                                 <Eye className="h-4 w-4 text-blue-500" />
                                                             </Button>

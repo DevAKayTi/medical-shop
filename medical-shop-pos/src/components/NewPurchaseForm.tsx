@@ -479,41 +479,61 @@ export function NewPurchaseForm({ suppliers, products, onSubmit, onCancel }: Pro
                 </Card>
             )}
 
-            {/* ── Totals + submit ── */}
-            <Card>
-                <CardContent className="pt-5">
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-                        <div className="grid grid-cols-2 gap-4 md:w-72">
-                            <div>
+            {/* ── Billing Summary ── */}
+            <section aria-labelledby="summary-heading" className="mt-8">
+                <h2 id="summary-heading" className="sr-only">Order Summary</h2>
+
+                <div className="bg-white dark:bg-slate-800/50 px-4 py-6 sm:rounded-lg sm:px-6 lg:grid lg:grid-cols-12 lg:gap-x-8 lg:px-8 lg:py-8 border border-slate-200 dark:border-slate-700">
+                    <dl className="grid grid-cols-2 gap-6 text-sm md:gap-x-8 lg:col-span-7">
+                        <div>
+                            <dt className="font-medium text-slate-900 dark:text-slate-100 mb-3">Discount Details</dt>
+                            <dd>
                                 <label className="text-xs text-slate-500 mb-1 block">Discount</label>
-                                <Input type="number" min={0} step="0.01" {...register("discount")} />
+                                <Input type="number" min={0} step="0.01" {...register("discount")} className="bg-white dark:bg-slate-900" />
                                 <FieldError message={errors.discount?.message} />
-                            </div>
-                            <div>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="font-medium text-slate-900 dark:text-slate-100 mb-3">Tax Information</dt>
+                            <dd>
                                 <label className="text-xs text-slate-500 mb-1 block">Tax</label>
-                                <Input type="number" min={0} step="0.01" {...register("tax")} />
+                                <Input type="number" min={0} step="0.01" {...register("tax")} className="bg-white dark:bg-slate-900" />
                                 <FieldError message={errors.tax?.message} />
-                            </div>
+                            </dd>
                         </div>
+                    </dl>
 
-                        <div className="text-right space-y-1">
-                            <div className="text-sm text-slate-500">Subtotal: <span className="font-medium text-slate-700">{subtotal.toFixed(2)}</span></div>
-                            <div className="text-sm text-slate-500">Discount: <span className="text-red-500">-{Number(watchedDiscount).toFixed(2)}</span></div>
-                            <div className="text-sm text-slate-500">Tax: <span className="text-amber-500">+{Number(watchedTax).toFixed(2)}</span></div>
-                            <div className="text-xl font-bold text-slate-900 dark:text-white pt-1 border-t border-slate-200 dark:border-slate-700">
-                                Total: {grandTotal.toFixed(2)}
-                            </div>
+                    <dl className="mt-8 divide-y divide-slate-200 dark:divide-slate-700 text-sm lg:col-span-5 lg:mt-0">
+                        <div className="flex items-center justify-between pb-4">
+                            <dt className="text-slate-600 dark:text-slate-400">Subtotal</dt>
+                            <dd className="font-medium text-slate-900 dark:text-slate-100">{subtotal.toFixed(2)}</dd>
                         </div>
-                    </div>
+                        <div className="flex items-center justify-between py-4">
+                            <dt className="text-slate-600 dark:text-slate-400">Discount</dt>
+                            <dd className="font-medium text-red-500">-{Number(watchedDiscount).toFixed(2)}</dd>
+                        </div>
+                        <div className="flex items-center justify-between py-4">
+                            <dt className="text-slate-600 dark:text-slate-400">Tax</dt>
+                            <dd className="font-medium text-amber-500">+{Number(watchedTax).toFixed(2)}</dd>
+                        </div>
+                        <div className="flex items-center justify-between pt-4">
+                            <dt className="font-medium text-slate-900 dark:text-slate-100">Order total</dt>
+                            <dd className="font-bold text-emerald-600 dark:text-emerald-400 text-lg">{grandTotal.toFixed(2)}</dd>
+                        </div>
+                    </dl>
+                </div>
 
-                    <div className="flex justify-end gap-3 mt-5">
-                        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? "Saving…" : (watch("status") === "received" ? "Save & Receive Stock" : "Save Order")}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                <div className="flex justify-end gap-3 mt-6">
+                    <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+                    <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                    >
+                        {isSubmitting ? "Saving…" : (watch("status") === "received" ? "Save & Receive Stock" : "Save Order")}
+                    </Button>
+                </div>
+            </section>
         </form>
     );
 }
