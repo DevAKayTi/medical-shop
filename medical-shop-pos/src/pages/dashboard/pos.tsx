@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useReactToPrint } from "react-to-print";
 import { useToast } from "@/components/ui/ToastProvider";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -332,67 +333,117 @@ export default function POSPage() {
 
     if (!loading && !activeSession) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] py-12 animate-in fade-in duration-500">
-                <Card className="w-full max-w-md shadow-lg border-blue-100 dark:border-blue-900/30">
-                    <CardHeader className="bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-900/30">
-                        <CardTitle className="text-xl flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                            <Store className="h-5 w-5" /> Start Shift Session
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <form onSubmit={handleOpenShift} className="space-y-4">
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Select Cash Register *</label>
-                                <select
-                                    className="mt-1 w-full h-10 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={selectedRegisterId}
-                                    onChange={e => setSelectedRegisterId(e.target.value)}
-                                    required
-                                >
-                                    <option value="">-- Choose Register --</option>
-                                    {registers.map(r => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
-                                {registers.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                        No active registers available. Please create one in Settings.
-                                    </p>
-                                )}
-                            </div>
+            <div className="relative isolate min-h-[calc(100vh-8rem)] flex items-center justify-center px-6 py-16 overflow-hidden animate-in fade-in duration-500">
+                <svg
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 size-full mask-[radial-gradient(100%_100%_at_top_right,white,transparent)] stroke-gray-200"
+                >
+                    <defs>
+                        <pattern
+                            x="50%"
+                            y={-64}
+                            id="83fd4e5a-9d52-42fc-97b6-718e5d7ee527"
+                            width={200}
+                            height={200}
+                            patternUnits="userSpaceOnUse"
+                        >
+                            <path d="M100 200V.5M.5 .5H200" fill="none" />
+                        </pattern>
+                    </defs>
+                    <svg x="50%" y={-64} className="overflow-visible fill-gray-50">
+                        <path
+                            d="M-100.5 0h201v201h-201Z M699.5 0h201v201h-201Z M499.5 400h201v201h-201Z M299.5 800h201v201h-201Z"
+                            strokeWidth={0}
+                        />
+                    </svg>
+                    <rect fill="url(#83fd4e5a-9d52-42fc-97b6-718e5d7ee527)" width="100%" height="100%" strokeWidth={0} />
+                </svg>
 
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Opening Cash Amount</label>
-                                <div className="relative mt-1">
-                                    <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{getCurrencySymbol()}</span>
-                                    <Input
-                                        type="number"
-                                        placeholder="0.00"
-                                        className="pl-7"
-                                        min="0"
-                                        step="0.01"
-                                        value={openingCash}
-                                        onChange={e => setOpeningCash(e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                <div className="w-full max-w-lg">
+                    {/* Header */}
+                    <div className="text-center mb-10">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-600/30">
+                            <Store className="h-8 w-8 text-white" />
+                        </div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Start Shift Session</h1>
+                        <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm">Select your register and enter opening cash to begin selling.</p>
+                    </div>
 
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (Optional)</label>
-                                <textarea
-                                    className="mt-1 w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 flex min-h-[80px] bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Starting shift notes..."
-                                    value={shiftNotes}
-                                    onChange={e => setShiftNotes(e.target.value)}
+                    {/* Form */}
+                    <form onSubmit={handleOpenShift} className="space-y-5">
+                        {/* Register select */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Cash Register <span className="text-red-500">*</span>
+                            </label>
+                            <SelectMenu
+                                value={selectedRegisterId}
+                                onChange={setSelectedRegisterId}
+                                options={[
+                                    { value: "", label: "— Select a Register —" },
+                                    ...registers.map(r => ({ value: r.id, label: r.name })),
+                                ]}
+                            />
+                            {registers.length === 0 && (
+                                <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                    ⚠ No active registers available. Please create one in Settings.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Opening cash */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Opening Cash Amount
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none">{getCurrencySymbol()}</span>
+                                <input
+                                    type="number"
+                                    placeholder="0.00"
+                                    min="0"
+                                    step="0.01"
+                                    value={openingCash}
+                                    onChange={e => setOpeningCash(e.target.value)}
+                                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                 />
                             </div>
+                        </div>
 
-                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={startingShift || !selectedRegisterId}>
-                                {startingShift ? "Starting Shift..." : "Open Shift & Start Selling"}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                        {/* Notes */}
+                        <div>
+                            <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Notes <span className="text-slate-400 font-normal">(Optional)</span>
+                            </label>
+                            <textarea
+                                rows={3}
+                                placeholder="Starting shift notes..."
+                                value={shiftNotes}
+                                onChange={e => setShiftNotes(e.target.value)}
+                                className="block w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors resize-none"
+                            />
+                        </div>
+
+                        {/* Submit */}
+                        <div className="pt-2">
+                            <button
+                                type="submit"
+                                disabled={startingShift || !selectedRegisterId}
+                                className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-emerald-600/25 hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-150"
+                            >
+                                {startingShift ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                        </svg>
+                                        Starting Shift...
+                                    </span>
+                                ) : "Open Shift & Start Selling"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         );
     }
