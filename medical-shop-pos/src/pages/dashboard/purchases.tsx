@@ -14,6 +14,7 @@ import {
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import { authLib } from "@/lib/auth";
+import { AddButton } from "@/components/ui/IconButton";
 
 type ViewMode = "list" | "new" | "detail" | "return" | "return-list";
 
@@ -588,9 +589,11 @@ export default function PurchasesPage() {
                     <Button variant="outline" onClick={() => setView("return-list")} className="flex-shrink-0">
                         <List className="mr-2 h-4 w-4" /> View Returns
                     </Button>
-                    <Button onClick={() => setView("new")} className="flex-shrink-0">
-                        <Plus className="mr-2 h-4 w-4" /> New Purchase Order
-                    </Button>
+                    <AddButton
+                        title="New Purchase Order"
+                        icon={<Plus className="h-4 w-4" />}
+                        onClick={() => setView("new")}
+                    />
                 </div>
             </div>
 
