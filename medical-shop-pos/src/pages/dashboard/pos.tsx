@@ -394,10 +394,10 @@ export default function POSPage() {
                         {/* Opening cash */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                                Opening Cash Amount
+                                Opening Cash Amount <span className="text-sm">({getCurrencySymbol()})</span>
                             </label>
                             <div className="relative">
-                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none">{getCurrencySymbol()}</span>
+
                                 <input
                                     type="number"
                                     placeholder="0.00"
@@ -405,7 +405,7 @@ export default function POSPage() {
                                     step="0.01"
                                     value={openingCash}
                                     onChange={e => setOpeningCash(e.target.value)}
-                                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-10 pr-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                                    className="block w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-3 pr-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
                                 />
                             </div>
                         </div>
@@ -446,6 +446,41 @@ export default function POSPage() {
                 </div>
             </div>
         );
+    }
+
+    if (loading && !activeSession) {
+        return (
+            <div className="relative isolate min-h-[calc(100vh-8rem)] flex items-center justify-center px-6 py-16 overflow-hidden animate-in fade-in duration-500">
+                <svg
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-10 size-full mask-[radial-gradient(100%_100%_at_top_right,white,transparent)] stroke-gray-200"
+                >
+                    <defs>
+                        <pattern
+                            x="50%"
+                            y={-64}
+                            id="83fd4e5a-9d52-42fc-97b6-718e5d7ee527"
+                            width={200}
+                            height={200}
+                            patternUnits="userSpaceOnUse"
+                        >
+                            <path d="M100 200V.5M.5 .5H200" fill="none" />
+                        </pattern>
+                    </defs>
+                    <svg x="50%" y={-64} className="overflow-visible fill-gray-50">
+                        <path
+                            d="M-100.5 0h201v201h-201Z M699.5 0h201v201h-201Z M499.5 400h201v201h-201Z M299.5 800h201v201h-201Z"
+                            strokeWidth={0}
+                        />
+                    </svg>
+                    <rect fill="url(#83fd4e5a-9d52-42fc-97b6-718e5d7ee527)" width="100%" height="100%" strokeWidth={0} />
+                </svg>
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600 dark:text-slate-400">Loading POS...</p>
+                </div>
+            </div>
+        )
     }
 
     // ─── POS UI ────────────────────────────────────────────────────────
