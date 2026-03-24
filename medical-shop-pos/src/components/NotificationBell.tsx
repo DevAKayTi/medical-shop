@@ -57,9 +57,9 @@ export function NotificationBell() {
             {/* Bell Button */}
             <button
                 onClick={() => setOpen((o) => !o)}
-                className={`relative flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${open || unreadCount > 0
-                        ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400'
-                        : 'border-transparent bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${open || unreadCount > 0
+                    ? 'text-slate-700 dark:border-slate-900/50 dark:bg-slate-900/30 dark:text-slate-400'
+                    : 'border-transparent bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
                     }`}
                 aria-label="Notifications"
             >
@@ -139,8 +139,8 @@ export function NotificationBell() {
                                 <div
                                     key={n.id}
                                     className={`relative flex flex-col rounded-xl border p-5 transition-shadow hover:shadow-md ${n.read_at
-                                            ? 'border-slate-200 bg-white opacity-90 dark:border-slate-800 dark:bg-slate-900'
-                                            : 'border-blue-200 bg-blue-50/80 shadow-sm dark:border-blue-900/50 dark:bg-blue-900/20'
+                                        ? 'border-slate-200 bg-white opacity-90 dark:border-slate-800 dark:bg-slate-900'
+                                        : 'border-blue-200 bg-blue-50/80 shadow-sm dark:border-blue-900/50 dark:bg-blue-900/20'
                                         }`}
                                 >
                                     <div className="flex items-start gap-4">

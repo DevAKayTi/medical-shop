@@ -73,26 +73,27 @@ export function DashboardLayout() {
             </div>
 
             <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-                {/* Mobile top bar with hamburger */}
-                <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 lg:hidden flex-shrink-0">
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                        aria-label="Open sidebar"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </button>
-                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">
-                        {shop?.name ?? "Medical POS"}
-                    </span>
-                    <NotificationBell />
-                </div>
-
-                <main className="flex-1 overflow-y-auto overflow-x-hidden">
-                    {/* Desktop top bar with notification bell */}
-                    <div className="hidden lg:flex items-center justify-end border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden relative">
+                    {/* Mobile top bar with hamburger */}
+                    <div className="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-4 py-3 lg:hidden">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                            aria-label="Open sidebar"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">
+                            {shop?.name ?? "Medical POS"}
+                        </span>
                         <NotificationBell />
                     </div>
+
+                    {/* Desktop top bar with notification bell */}
+                    <div className="sticky top-0 z-20 hidden lg:flex shrink-0 items-center justify-end border-b border-slate-200/60 dark:border-slate-800/60 bg-white/75 dark:bg-slate-900/70 backdrop-blur-sm px-6 py-3">
+                        <NotificationBell />
+                    </div>
+
                     <div className="p-6">
                         <Outlet context={{ user, shop }} />
                     </div>
