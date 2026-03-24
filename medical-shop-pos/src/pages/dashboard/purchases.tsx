@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/Input";
 import { NewPurchaseForm } from "@/components/NewPurchaseForm";
 import {
     ShoppingCart, Plus, Search, Eye, CheckCircle, XCircle,
-    Clock, ChevronLeft, RefreshCw, Truck, Package, Undo2, List, CreditCard
+    Clock, ChevronLeft, RefreshCw, Package, Undo2, List, CreditCard, ChevronDown, Check
 } from "lucide-react";
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import { AddButton } from "@/components/ui/IconButton";
@@ -54,6 +55,31 @@ const PaymentStatusBadge = ({ status }: { status: string }) => {
         </span>
     );
 };
+
+const paymentOptions = [
+    {
+        id: 'unpaid',
+        title: 'Unpaid',
+        description: 'No payment has been made yet for this order.',
+        bgClass: 'bg-amber-600 dark:bg-amber-500',
+        hoverClass: 'hover:bg-amber-700 dark:hover:bg-amber-600',
+        ringClass: 'focus-visible:outline-amber-400 dark:focus-visible:outline-amber-400',
+        borderClass: 'border-amber-700/30 dark:border-amber-600/30',
+        focusBgClass: 'data-[focus]:bg-amber-600 dark:data-[focus]:bg-amber-500',
+        iconClass: 'text-amber-600 dark:text-amber-400'
+    },
+    {
+        id: 'paid',
+        title: 'Paid',
+        description: 'The order has been fully paid and settled.',
+        bgClass: 'bg-emerald-600 dark:bg-emerald-500',
+        hoverClass: 'hover:bg-emerald-700 dark:hover:bg-emerald-600',
+        ringClass: 'focus-visible:outline-emerald-400 dark:focus-visible:outline-emerald-400',
+        borderClass: 'border-emerald-700/30 dark:border-emerald-600/30',
+        focusBgClass: 'data-[focus]:bg-emerald-600 dark:data-[focus]:bg-emerald-500',
+        iconClass: 'text-emerald-600 dark:text-emerald-400'
+    },
+];
 
 export default function PurchasesPage() {
     const [view, setView] = useState<ViewMode>("list");
@@ -254,6 +280,7 @@ export default function PurchasesPage() {
                     }}
                     onCancel={() => setView("list")}
                 />
+                <ConfirmDialog />
             </div>
         );
     }
@@ -262,15 +289,7 @@ export default function PurchasesPage() {
         const p = selectedPurchase;
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
-                {/* <div className="flex items-center justify-between">
-                    
-                    <div className="flex items-center gap-2">
-                        <StatusBadge status={p.status} />
-                        <PaymentStatusBadge status={p.payment_status} />
-                    </div>
-                </div> */}
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{p.purchase_number}</h1>
                         <p className="text-slate-500 text-sm mt-0.5">
@@ -279,25 +298,140 @@ export default function PurchasesPage() {
                             {p.received_at && <> · Received: <span className="text-green-600 font-medium">{new Date(p.received_at).toLocaleDateString()}</span></>}
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+                    <div className="flex flex-col items-end gap-2">
+                        <button onClick={() => setView("list")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
                             <ChevronLeft className="h-4 w-4" /> Back to Purchases
                         </button>
-                        {/* {p.status === 'received' && (
-                            <Button onClick={() => {
-                                setSelectedPurchase(p);
-                                setView("return");
-                            }} variant="outline" className="text-amber-600 border-amber-200 hover:bg-amber-50">
-                                <Undo2 className="h-4 w-4 mr-2" /> Return Items
-                            </Button>
-                        )} */}
+                        {/* <div className="flex gap-2 mt-1">
+                            <StatusBadge status={p.status} />
+                            <PaymentStatusBadge status={p.payment_status} />
+                        </div> */}
                     </div>
                 </div>
+
+                {/* Progress Tracking Bar */}
+                {p.status !== 'cancelled' && (
+                    <div className="bg-white dark:bg-slate-800/50 rounded-lg p-6 shadow-sm ring-1 ring-slate-200 dark:ring-white/10 animate-in fade-in slide-in-from-top-4 duration-700">
+                        <div aria-hidden="true">
+                            <div className="overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                <div
+                                    style={{
+                                        width: `${p.payment_status === 'paid' ? 100
+                                            : p.status === 'received' ? 37.5
+                                                : 12.5
+                                            }%`
+                                    }}
+                                    className="h-2 rounded-full bg-emerald-600 transition-all duration-1000 ease-out"
+                                />
+                            </div>
+                            <div className="mt-6 hidden grid-cols-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:grid">
+                                <div className="text-emerald-600 dark:text-emerald-400">Order Placed</div>
+                                <div className={(p.status === 'received' || p.payment_status === 'paid') ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
+                                    Received
+                                </div>
+                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
+                                    Paid
+                                </div>
+                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-right' : 'text-right'}>
+                                    Completed
+                                </div>
+                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
+                                    Return Pending
+                                </div>
+                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
+                                    Returned
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {p.status === 'pending' ? (
+                    <div className="bg-white shadow-sm sm:rounded-lg dark:bg-slate-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 overflow-hidden ring-1 ring-slate-200 dark:ring-white/10">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="sm:flex sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">Mark as Received</h3>
+                                    <div className="mt-2 max-w-xl text-sm text-slate-500 dark:text-gray-400">
+                                        <p>Confirm that the items in this purchase order have been delivered to your facility. This will automatically update your inventory stock levels and create the corresponding product batches.</p>
+                                    </div>
+                                </div>
+                                <div className="mt-5 sm:mt-0 sm:ml-6 sm:flex sm:shrink-0 sm:items-center">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleMarkReceived(p.id)}
+                                        disabled={saving}
+                                        className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-500 disabled:opacity-50 transition-all font-sans"
+                                    >
+                                        Receive Order
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : p.status === 'received' ? (
+                    <div className="bg-white shadow-sm sm:rounded-lg dark:bg-slate-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 overflow-hidden ring-1 ring-slate-200 dark:ring-white/10">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="sm:flex sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <CheckCircle className="h-5 w-5 text-emerald-500" />
+                                        {p.payment_status === 'paid' ? "Order Fully Processed" : "Order Received - Pending Payment"}
+                                    </h3>
+                                    <div className="mt-2 max-w-xl text-sm text-slate-500 dark:text-gray-400">
+                                        <p>
+                                            {p.payment_status === 'paid'
+                                                ? "This order has been received and fully paid. Stock has been added to your inventory."
+                                                : `This order has been received, but the payment status is currently "${p.payment_status}". Please confirm the payment once settled.`}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="mt-5 sm:mt-0 sm:ml-6 sm:flex sm:shrink-0 sm:items-center">
+                                    {p.payment_status !== 'paid' ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleUpdatePaymentStatus(p.id, 'paid')}
+                                            disabled={updatingPayment}
+                                            className="inline-flex items-center rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-500 disabled:opacity-50 transition-all font-sans"
+                                        >
+                                            <CreditCard className="h-4 w-4 mr-2" />
+                                            Mark as Paid
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedPurchase(p);
+                                                setView("return");
+                                            }}
+                                            className="inline-flex items-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 dark:bg-red-500 dark:hover:bg-red-400 dark:focus-visible:outline-red-500 transition-all font-sans"
+                                        >
+                                            <Undo2 className="h-4 w-4 mr-2" />
+                                            Return Items
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : p.status === 'cancelled' ? (
+                    <div className="bg-white shadow-sm sm:rounded-lg dark:bg-slate-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10 overflow-hidden ring-1 ring-slate-200 dark:ring-white/10">
+                        <div className="px-4 py-5 sm:p-6">
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                <XCircle className="h-5 w-5 text-red-500" />
+                                Purchase Order Cancelled
+                            </h3>
+                            <div className="mt-2 max-w-xl text-sm text-slate-500 dark:text-gray-400">
+                                <p>This purchase order has been marked as cancelled. No stock was added to the inventory from this order.</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
 
                 <Card>
                     <CardHeader><CardTitle className="text-base">Order Items ({p.items?.length || 0})</CardTitle></CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto border-b border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm text-left">
                                 <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500">
                                     <tr>
@@ -305,8 +439,8 @@ export default function PurchasesPage() {
                                         <th className="px-4 py-3">Batch</th>
                                         <th className="px-4 py-3">Expiry</th>
                                         <th className="px-4 py-3 text-right">Qty</th>
-                                        <th className="px-4 py-3 text-right">Unit Price</th>
-                                        <th className="px-4 py-3 text-right">Line Total</th>
+                                        <th className="px-4 py-3 text-right">Unit Price (MMK)</th>
+                                        <th className="px-4 py-3 text-right">Line Total (MMK)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -325,53 +459,33 @@ export default function PurchasesPage() {
                                                     : "—"}
                                             </td>
                                             <td className="px-4 py-3 text-right">{item.quantity}</td>
-                                            <td className="px-4 py-3 text-right">{formatCurrency(Number(item.purchase_price))}</td>
-                                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(Number(item.total))}</td>
+                                            <td className="px-4 py-3 text-right">{formatNumber(Number(item.purchase_price))}</td>
+                                            <td className="px-4 py-3 text-right font-medium">{formatNumber(Number(item.total))}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-right space-y-1">
-                            <div className="text-sm text-slate-500">Subtotal: <span className="font-medium">{formatCurrency(Number(p.subtotal))}</span></div>
-                            {Number(p.discount) > 0 && <div className="text-sm text-slate-500">Discount: <span className="text-red-500">-{formatCurrency(Number(p.discount))}</span></div>}
-                            {Number(p.tax) > 0 && <div className="text-sm text-slate-500">Tax: <span className="text-amber-500">+{formatCurrency(Number(p.tax))}</span></div>}
-                            <div className="text-xl font-bold text-slate-900 dark:text-white">Total: {formatCurrency(Number(p.total))}</div>
-                        </div>
+                        <dl className="space-y-4 px-2 pt-4 mt-4 ml-auto max-w-sm">
+                            <div className="flex items-center justify-between">
+                                <dt className="text-sm text-slate-500">Subtotal</dt>
+                                <dd className="text-sm font-medium text-slate-900 dark:text-slate-100">{formatNumber(Number(p.subtotal))}</dd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <dt className="text-sm text-slate-500">Discount</dt>
+                                <dd className="text-sm font-medium text-red-500">-{formatNumber(Number(p.discount))}</dd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <dt className="text-sm text-slate-500">Tax</dt>
+                                <dd className="text-sm font-medium text-amber-500">+{formatNumber(Number(p.tax))}</dd>
+                            </div>
+                            <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700 pt-4">
+                                <dt className="text-base font-semibold text-slate-900 dark:text-slate-100">Total (MMK)</dt>
+                                <dd className="text-base font-bold text-slate-900 dark:text-white">{formatNumber(Number(p.total))}</dd>
+                            </div>
+                        </dl>
                     </CardContent>
                 </Card>
-                <div className="bg-white shadow-sm sm:rounded-lg dark:bg-gray-800/50 dark:shadow-none dark:outline dark:-outline-offset-1 dark:outline-white/10">
-                    <div className="px-4 py-5 sm:p-6">
-                        <div className="sm:flex sm:items-start sm:justify-between">
-                            <div>
-                                <div className="flex items-center gap-2"><h3 className="text-base font-semibold text-gray-900 dark:text-white">Manage subscription</h3><StatusBadge status={p.status} /></div>
-                                <div className="mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
-                                    <p>
-                                        Lorem ipsum dolor sit amet consectetur adipisicing elit. Recusandae voluptatibus corrupti atque
-                                        repudiandae nam.
-                                    </p>
-                                </div>
-                            </div>
-                            {p.payment_status === 'paid' ? (
-                                <span className="inline-flex items-center gap-1 h-8 rounded-md border border-green-300 bg-green-50 dark:bg-green-900/20 px-2 text-xs font-semibold text-green-700 dark:text-green-400">
-                                    <CheckCircle className="h-3 w-3" /> Paid — locked
-                                </span>
-                            ) : (
-                                <select
-                                    value={p.payment_status}
-                                    disabled={updatingPayment}
-                                    onChange={e => handleUpdatePaymentStatus(p.id, e.target.value as any)}
-                                    className="h-8 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                                >
-                                    <option value="unpaid">Unpaid</option>
-                                    <option value="paid">Paid</option>
-                                    <option value="partial">Partial</option>
-                                </select>
-                            )}
-
-                        </div>
-                    </div>
-                </div>
 
                 {p.notes && (
                     <Card>
@@ -380,6 +494,7 @@ export default function PurchasesPage() {
                         </CardContent>
                     </Card>
                 )}
+                <ConfirmDialog />
             </div>
         );
     }
@@ -398,6 +513,7 @@ export default function PurchasesPage() {
                     onSubmit={handleCreateReturn}
                     onCancel={() => setView("detail")}
                 />
+                <ConfirmDialog />
             </div>
         );
     }
@@ -690,8 +806,8 @@ export default function PurchasesPage() {
                                                 <tr>
                                                     <th className="px-3 py-2">Product</th>
                                                     <th className="px-3 py-2 text-right">Qty</th>
-                                                    <th className="px-3 py-2 text-right">Price</th>
-                                                    <th className="px-3 py-2 text-right">Total</th>
+                                                    <th className="px-3 py-2 text-right">Price (MMK)</th>
+                                                    <th className="px-3 py-2 text-right">Total (MMK)</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -699,15 +815,15 @@ export default function PurchasesPage() {
                                                     <tr key={i}>
                                                         <td className="px-3 py-2.5 font-medium">{item.product?.name || "—"}</td>
                                                         <td className="px-3 py-2.5 text-right">{item.quantity}</td>
-                                                        <td className="px-3 py-2.5 text-right">{formatCurrency(Number(item.price))}</td>
-                                                        <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(Number(item.total))}</td>
+                                                        <td className="px-3 py-2.5 text-right">{formatNumber(Number(item.price))}</td>
+                                                        <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(Number(item.total))}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
                                     <div className="text-right mt-2">
-                                        <span className="text-xl font-bold text-slate-900 dark:text-white">Total: {formatCurrency(Number(selectedReturn.total))}</span>
+                                        <span className="text-xl font-bold text-slate-900 dark:text-white">Total (MMK): {formatNumber(Number(selectedReturn.total))}</span>
                                     </div>
                                 </div>
                             )}
