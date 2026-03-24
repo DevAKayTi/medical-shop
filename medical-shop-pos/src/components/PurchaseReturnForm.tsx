@@ -1,12 +1,19 @@
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
-import { Select } from '@headlessui/react';
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ApiPurchase } from "@/lib/purchases";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useToast } from "@/components/ui/ToastProvider";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const statusOptions = [
+    { value: "completed", label: "Completed (Deduct stock now)" },
+    { value: "pending", label: "Pending (Review later)" },
+];
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 
@@ -156,13 +163,11 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                             control={control}
                             name="status"
                             render={({ field }) => (
-                                <Select
-                                    {...field}
-                                    className="flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                >
-                                    <option value="completed">Completed (Deduct stock now)</option>
-                                    <option value="pending">Pending (Review later)</option>
-                                </Select>
+                                <SelectMenu
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    options={statusOptions}
+                                />
                             )}
                         />
                     </div>
@@ -181,8 +186,8 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                                     <th className="px-4 py-3">Product / Batch</th>
                                     <th className="px-4 py-3 text-right">Purchased Qty</th>
                                     <th className="px-4 py-3 text-right">Return Qty</th>
-                                    <th className="px-4 py-3 text-right">Price</th>
-                                    <th className="px-4 py-3 text-right">Refund Total</th>
+                                    <th className="px-4 py-3 text-right">Price (MMK)</th>
+                                    <th className="px-4 py-3 text-right">Refund Total (MMK)</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -251,7 +256,7 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                     )}
                 </div>
                 <div className="text-right">
-                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Refund Amount</p>
+                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total Refund Amount (MMK)</p>
                     <p className="text-2xl font-black text-slate-900 dark:text-white">
                         {totalReturnAmount.toFixed(2)}
                     </p>
@@ -262,7 +267,11 @@ export function PurchaseReturnForm({ purchase, onSubmit, onCancel }: Props) {
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting || !hasItemsToReturn}>
+                <Button
+                    type="submit"
+                    disabled={isSubmitting || !hasItemsToReturn}
+                    className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                >
                     {isSubmitting ? "Processing…" : "Submit Purchase Return"}
                 </Button>
             </div>

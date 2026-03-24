@@ -335,12 +335,6 @@ export default function PurchasesPage() {
                                 <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-right' : 'text-right'}>
                                     Completed
                                 </div>
-                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
-                                    Return Pending
-                                </div>
-                                <div className={p.payment_status === 'paid' ? 'text-emerald-600 dark:text-emerald-400 text-center' : 'text-center'}>
-                                    Returned
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -502,12 +496,17 @@ export default function PurchasesPage() {
     if (view === "return" && selectedPurchase) {
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="flex items-center gap-3">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Return Items</h1>
+                        <p className="text-slate-500 text-sm mt-0.5">
+                            Supplier: <span className="font-medium text-slate-700 dark:text-slate-300">{selectedPurchase.supplier?.name || "—"}</span>
+                        </p>
+                    </div>
                     <button onClick={() => setView("detail")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
                         <ChevronLeft className="h-4 w-4" /> Back to Detail
                     </button>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Return Items</h1>
                 <PurchaseReturnForm
                     purchase={selectedPurchase}
                     onSubmit={handleCreateReturn}
