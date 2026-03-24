@@ -57,6 +57,7 @@ export interface ApiSale {
     created_at: string;
     customer?: ApiCustomer;
     cashier?: { id: string; name: string };
+    register?: { id: string; name: string };
     items?: ApiSaleItem[];
     payments?: ApiSalePayment[];
 }

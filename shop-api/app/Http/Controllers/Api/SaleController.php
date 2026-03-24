@@ -40,7 +40,7 @@ class SaleController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         $query = Sale::where('shop_id', Auth::user()->shop_id)
-            ->with(['customer', 'cashier'])
+            ->with(['customer', 'cashier', 'register'])
             ->latest('sold_at');
 
         if ($request->filled('status')) {
@@ -59,8 +59,15 @@ class SaleController extends Controller implements HasMiddleware
         if ($request->filled('date_to')) {
             $query->whereDate('sold_at', '<=', $request->date_to);
         }
+        
+        if ($request->boolean('all')) {
+            return response()->json([
+                'data' => $query->get(),
+                'total' => $query->count()
+            ]);
+        }
 
-        return $query->paginate(30);
+        return $query->paginate($request->input('per_page', 30));
     }
 
     // ─── Show detail ─────────────────────────────────────────────────
@@ -69,7 +76,7 @@ class SaleController extends Controller implements HasMiddleware
     {
         $this->authorizeShop($sale);
         return response()->json(
-            $sale->load(['customer', 'cashier', 'items.product', 'items.batch', 'payments', 'returns.items'])
+            $sale->load(['customer', 'cashier', 'register', 'items.product', 'items.batch', 'payments', 'returns.items'])
         );
     }
 
@@ -142,21 +149,22 @@ class SaleController extends Controller implements HasMiddleware
 
             // Create sale items & deduct stock (FEFO)
             foreach ($validated['items'] as $item) {
-                SaleItem::create([
-                    'shop_id'    => $shopId,
-                    'sale_id'    => $sale->id,
-                    'product_id' => $item['product_id'],
-                    'batch_id'   => $item['batch_id'] ?? null,
-                    'quantity'   => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'discount'   => $item['discount'] ?? 0,
-                    'tax'        => $item['tax'] ?? 0,
-                    'total'      => $item['total'],
-                    'created_at' => now(),
-                ]);
-
                 // Deduct from specified batch or FEFO
                 if (!empty($item['batch_id'])) {
+                    // Scenario A: Specific Batch
+                    SaleItem::create([
+                        'shop_id'    => $shopId,
+                        'sale_id'    => $sale->id,
+                        'product_id' => $item['product_id'],
+                        'batch_id'   => $item['batch_id'],
+                        'quantity'   => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'discount'   => $item['discount'] ?? 0,
+                        'tax'        => $item['tax'] ?? 0,
+                        'total'      => $item['total'],
+                        'created_at' => now(),
+                    ]);
+
                     $this->inventoryService->adjustStock(
                         $shopId,
                         $item['product_id'],
@@ -169,8 +177,10 @@ class SaleController extends Controller implements HasMiddleware
                         $cashierId
                     );
                 } else {
-                    // FEFO: deduct from earliest expiring active batch
-                    $remaining = $item['quantity'];
+                    // Scenario B: FEFO - split across batches
+                    $remaining = (int) $item['quantity'];
+                    $totalQty = $remaining;
+
                     $batches = ProductBatch::where('product_id', $item['product_id'])
                         ->where('shop_id', $shopId)
                         ->where('is_active', true)
@@ -179,9 +189,34 @@ class SaleController extends Controller implements HasMiddleware
                         ->orderBy('expiry_date')
                         ->get();
 
+                    // Check total available stock first
+                    $available = $batches->sum('quantity');
+                    if ($available < $remaining) {
+                        throw new \Exception("Insufficient stock for product. Available: {$available}, Required: {$remaining}");
+                    }
+
                     foreach ($batches as $batch) {
                         if ($remaining <= 0) break;
                         $deduct = min($remaining, $batch->quantity);
+
+                        // Calculate proportional values
+                        $ratio = $deduct / $totalQty;
+                        $itemDiscount = ($item['discount'] ?? 0) * $ratio;
+                        $itemTax = ($item['tax'] ?? 0) * $ratio;
+                        $itemTotal = ($item['total'] ?? 0) * $ratio;
+
+                        SaleItem::create([
+                            'shop_id'    => $shopId,
+                            'sale_id'    => $sale->id,
+                            'product_id' => $item['product_id'],
+                            'batch_id'   => $batch->id,
+                            'quantity'   => $deduct,
+                            'unit_price' => $item['unit_price'],
+                            'discount'   => $itemDiscount,
+                            'tax'        => $itemTax,
+                            'total'      => $itemTotal,
+                            'created_at' => now(),
+                        ]);
                         
                         $this->inventoryService->adjustStock(
                             $shopId,
@@ -196,6 +231,10 @@ class SaleController extends Controller implements HasMiddleware
                         );
 
                         $remaining -= $deduct;
+                    }
+
+                    if ($remaining > 0) {
+                        throw new \Exception("Stock error during deduction. Partial amount remaining: {$remaining}");
                     }
                 }
             }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/currency";
 import { ApiCustomer, customerApi, CreateCustomerPayload, saleApi, ApiSale } from "@/lib/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +11,18 @@ import {
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import { authLib } from "@/lib/auth";
+import { AddButton } from "@/components/ui/IconButton";
+import { IconCard } from "@/components/ui/IconCard";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 
 // ─── Customer Form ────────────────────────────────────────────────────────────
+
+const genderOptions = [
+    { value: "", label: "Not specified" },
+    { value: "male", label: "Male" },
+    { value: "female", label: "Female" },
+    { value: "other", label: "Other" },
+];
 
 function CustomerForm({
     initial,
@@ -119,18 +130,14 @@ function CustomerForm({
                         />
                         {errors.date_of_birth && <p className="text-red-500 text-xs mt-1">{errors.date_of_birth}</p>}
                     </div>
-                    <div>
+                    <div className="z-20 relative">
                         <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Gender</label>
-                        <select
+                        <SelectMenu
                             value={form.gender ?? ""}
-                            onChange={e => set("gender", e.target.value)}
-                            className={`mt-1 w-full h-10 rounded-md border ${errors.gender ? 'border-red-500' : 'border-slate-300 dark:border-slate-700'} bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                        >
-                            <option value="">Not specified</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                        </select>
+                            onChange={v => set("gender", v)}
+                            options={genderOptions}
+                            className={`mt-1 ${errors.gender ? 'border-red-500' : ''}`}
+                        />
                         {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                     </div>
                     <div className="md:col-span-2">
@@ -149,9 +156,15 @@ function CustomerForm({
                             {errors.submit}
                         </div>
                     )}
-                    <div className="md:col-span-2 flex gap-3 pt-2">
-                        <Button type="submit" disabled={saving}>{saving ? "Saving…" : initial ? "Update Customer" : "Add Customer"}</Button>
-                        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+                    <div className="md:col-span-2 flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
+                        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
+                        <Button
+                            type="submit"
+                            disabled={saving}
+                            className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                        >
+                            {saving ? "Saving…" : initial ? "Confirm Update" : "Create Customer"}
+                        </Button>
                     </div>
                 </form>
             </CardContent>
@@ -246,11 +259,7 @@ export default function CustomersPage() {
     if (viewingCustomer) {
         return (
             <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="flex items-center justify-between">
-                    <button onClick={() => setViewingCustomer(null)} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
-                        <ChevronLeft className="h-4 w-4" /> Back to Customers
-                    </button>
-                </div>
+
                 <div className="flex items-start justify-between flex-wrap gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{viewingCustomer.name}</h1>
@@ -261,11 +270,11 @@ export default function CustomersPage() {
                             Total spent: <span className="font-medium text-emerald-600">{Number(viewingCustomer.total_spent).toFixed(2)}</span>
                         </p>
                     </div>
-                    {authLib.hasPermission('update-customers') && (
-                        <Button variant="outline" size="sm" onClick={() => { setEditingCustomer(viewingCustomer); setIsFormOpen(true); setViewingCustomer(null); }}>
-                            <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                        </Button>
-                    )}
+                    <div className="flex items-center justify-between">
+                        <button onClick={() => setViewingCustomer(null)} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+                            <ChevronLeft className="h-4 w-4" /> Back to Customers
+                        </button>
+                    </div>
                 </div>
                 <Card>
                     <CardHeader><CardTitle className="text-base">Purchase History ({customerSales.length})</CardTitle></CardHeader>
@@ -291,7 +300,7 @@ export default function CustomersPage() {
                                                 <td className="px-5 py-3 font-mono text-xs text-blue-600">{s.invoice_number}</td>
                                                 <td className="px-5 py-3 text-slate-500 text-xs">{new Date(s.sold_at).toLocaleDateString()}</td>
                                                 <td className="px-5 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{s.status}</span></td>
-                                                <td className="px-5 py-3 text-right font-semibold">{Number(s.total).toFixed(2)}</td>
+                                                <td className="px-5 py-3 text-right font-semibold">{formatNumber(Number(s.total))}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -314,35 +323,42 @@ export default function CustomersPage() {
                     <p className="text-slate-500 dark:text-slate-400">Manage your customer directory and purchase history.</p>
                 </div>
                 {!isFormOpen && authLib.hasPermission('create-customers') && (
-                    <Button onClick={() => { setEditingCustomer(undefined); setIsFormOpen(true); }}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Customer
-                    </Button>
+                    <AddButton
+                        onClick={() => { setEditingCustomer(undefined); setIsFormOpen(true); }}
+                        className="flex-shrink-0 shadow-lg shadow-indigo-500/20"
+                        title="Add Customer"
+                        icon={<Plus aria-hidden="true" className="size-5" />}
+                    />
                 )}
             </div>
 
             {/* Stats */}
             {!isFormOpen && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                        { icon: Users, label: "Total Customers", val: customers.length, color: "blue" },
-                        { icon: Star, label: "Total Loyalty Pts", val: totalLoyaltyPts.toLocaleString(), color: "amber" },
-                        { icon: TrendingUp, label: "Total Revenue", val: totalSpent.toFixed(0), color: "emerald" },
-                        { icon: ShoppingBag, label: "With Purchases", val: customers.filter(c => (c.sales_count || 0) > 0).length, color: "purple" },
-                    ].map(({ icon: Icon, label, val, color }) => (
-                        <Card key={label}>
-                            <CardContent className="pt-5">
-                                <div className="flex items-center gap-3">
-                                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-${color}-100 dark:bg-${color}-900/30`}>
-                                        <Icon className={`h-5 w-5 text-${color}-600`} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-500">{label}</p>
-                                        <p className="text-2xl font-bold text-slate-900 dark:text-white">{val}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    <IconCard
+                        name="Total Customers"
+                        stat={customers.length}
+                        icon={Users}
+                        iconBgClassName="bg-blue-800"
+                    />
+                    <IconCard
+                        name="Total Loyalty Pts"
+                        stat={totalLoyaltyPts.toLocaleString()}
+                        icon={Star}
+                        iconBgClassName="bg-amber-800"
+                    />
+                    <IconCard
+                        name="Total Revenue"
+                        stat={formatNumber(totalSpent)}
+                        icon={TrendingUp}
+                        iconBgClassName="bg-emerald-800"
+                    />
+                    <IconCard
+                        name="With Purchases"
+                        stat={customers.filter(c => (c.sales_count || 0) > 0).length}
+                        icon={ShoppingBag}
+                        iconBgClassName="bg-purple-800"
+                    />
                 </div>
             )}
 
@@ -404,7 +420,7 @@ export default function CustomersPage() {
                                                         <Star className="h-2.5 w-2.5" /> {customer.loyalty_points} pts
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3.5 text-right font-semibold text-emerald-600">{Number(customer.total_spent).toFixed(2)}</td>
+                                                <td className="px-5 py-3.5 text-right font-semibold text-slate-800">{formatNumber(customer.total_spent)}</td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex justify-center gap-1">
                                                         <Button variant="ghost" size="icon" title="Purchase History" onClick={() => openHistory(customer)}>

@@ -4,11 +4,13 @@ import { Plus, Edit, Trash2, PowerOff, Power } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useConfirm } from "@/hooks/useConfirm";
+import { AddButton } from "@/components/ui/IconButton";
+import { Checkbox } from "@/components/ui/Checkbox";
 
 const registerSchema = z.object({
     name: z.string().min(1, "Register name is required."),
@@ -30,6 +32,7 @@ function RegisterForm({
     const {
         register,
         handleSubmit,
+        control,
         formState: { errors, isSubmitting },
         setError,
     } = useForm<RegisterFormValues>({
@@ -68,23 +71,33 @@ function RegisterForm({
                         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="is_active"
-                            {...register("is_active")}
-                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 dark:border-slate-700 dark:bg-slate-900"
-                        />
-                        <label htmlFor="is_active" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Active
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800 max-w-sm">
+                        <label className="flex items-center gap-3 cursor-pointer group/flag">
+                            <Controller
+                                control={control}
+                                name="is_active"
+                                render={({ field: { onChange, value } }) => (
+                                    <Checkbox checked={value} onChange={onChange} />
+                                )}
+                            />
+                            <div className="space-y-0.5">
+                                <span className="text-sm font-semibold block group-hover/flag:text-blue-600 transition-colors uppercase tracking-tight">Active Status</span>
+                                <span className="text-[10px] text-slate-500 hidden sm:block">Visible in POS & Store</span>
+                            </div>
                         </label>
                     </div>
 
                     {errors.root && <p className="text-red-500 text-sm mt-1">{errors.root.message}</p>}
 
-                    <div className="flex gap-3 pt-2">
-                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving…" : "Save Register"}</Button>
-                        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
+                        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">Cancel</Button>
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto font-bold bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
+                        >
+                            {isSubmitting ? "Saving…" : "Save Register"}
+                        </Button>
                     </div>
                 </form>
             </CardContent>
@@ -165,9 +178,12 @@ export default function RegistersPage() {
                     <p className="text-slate-500 dark:text-slate-400">Manage POS cash registers and their statuses.</p>
                 </div>
                 {!isFormOpen && (
-                    <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto">
-                        <Plus className="mr-2 h-4 w-4" /> Add Register
-                    </Button>
+                    <AddButton
+                        onClick={() => setIsFormOpen(true)}
+                        className="flex-shrink-0 shadow-lg shadow-indigo-500/20"
+                        title="Add Register"
+                        icon={<Plus aria-hidden="true" className="size-5" />}
+                    />
                 )}
             </div>
 
@@ -217,28 +233,32 @@ export default function RegistersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => toggleStatus(reg)}
-                                                    className={`p-2 rounded-md border ${reg.is_active ? 'text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-900/20' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20'} transition-colors`}
+                                                    className={reg.is_active ? "text-amber-500" : "text-emerald-500"}
                                                     title={reg.is_active ? "Deactivate Register" : "Activate Register"}
                                                 >
                                                     {reg.is_active ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => { setEditingRegister(reg); setIsFormOpen(true); }}
-                                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                                                     title="Edit Register"
                                                 >
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button
+                                                    <Edit className="h-4 w-4 text-blue-500" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => handleDelete(reg.id)}
-                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                                                     title="Delete Register"
                                                 >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                </Button>
                                             </div>
                                         </td>
                                     </tr>

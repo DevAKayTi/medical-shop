@@ -1,4 +1,4 @@
-import { formatCurrency } from '@/lib/currency';
+import { formatNumber } from '@/lib/currency';
 import { useState, useEffect } from "react";
 import { shiftSessionApi, ApiShiftSession } from "@/lib/registers";
 import { Card } from "@/components/ui/Card";
@@ -10,18 +10,16 @@ export default function ShiftsPage() {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
-    const [statusFilter, setStatusFilter] = useState<"all" | "open" | "closed">("all");
 
     useEffect(() => {
         loadSessions();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, statusFilter]);
+    }, [page]);
 
     const loadSessions = async () => {
         setLoading(true);
         try {
             const data = await shiftSessionApi.list({
-                status: statusFilter === "all" ? undefined : statusFilter,
                 page
             });
             setSessions(data.data);
@@ -43,22 +41,10 @@ export default function ShiftsPage() {
 
     return (
         <div className="max-w-full mx-auto space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-end">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 items-start">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Shift History</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 uppercase">Shift History</h1>
                     <p className="text-slate-500 dark:text-slate-400">View and manage POS shift sessions.</p>
-                </div>
-
-                <div className="flex bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-1">
-                    {(["all", "open", "closed"] as const).map(s => (
-                        <button
-                            key={s}
-                            onClick={() => { setStatusFilter(s); setPage(1); }}
-                            className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${statusFilter === s ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
-                        >
-                            {s}
-                        </button>
-                    ))}
                 </div>
             </div>
 
@@ -72,11 +58,11 @@ export default function ShiftsPage() {
                                 <th className="px-5 py-3 font-medium">Opened At</th>
                                 <th className="px-5 py-3 font-medium">Closed At</th>
                                 <th className="px-5 py-3 font-medium">Status</th>
-                                <th className="px-5 py-3 font-medium text-right">Opening</th>
-                                <th className="px-5 py-3 font-medium text-right">Sales / Refunds</th>
-                                <th className="px-5 py-3 font-medium text-right border-l dark:border-slate-800">Expected</th>
-                                <th className="px-5 py-3 font-medium text-right">Actual Closing</th>
-                                <th className="px-5 py-3 font-medium text-right">Difference</th>
+                                <th className="px-5 py-3 font-medium text-right">Opening (MMK)</th>
+                                <th className="px-5 py-3 font-medium text-right">Sales / Refunds (MMK)</th>
+                                <th className="px-5 py-3 font-medium text-right border-l dark:border-slate-800">Expected (MMK)</th>
+                                <th className="px-5 py-3 font-medium text-right">Actual Closing (MMK)</th>
+                                <th className="px-5 py-3 font-medium text-right">Difference (MMK)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -131,22 +117,22 @@ export default function ShiftsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-5 py-4 text-right text-slate-600 dark:text-slate-300">
-                                                {formatCurrency(opening)}
+                                                {formatNumber(opening)}
                                             </td>
                                             <td className="px-5 py-4 text-right">
-                                                <div className="text-emerald-600 dark:text-emerald-400">{sales > 0 ? `+${formatCurrency(sales)}` : formatCurrency(0)}</div>
-                                                {refunds > 0 && <div className="text-xs text-red-500">-{formatCurrency(refunds)}</div>}
+                                                <div className="text-emerald-600 dark:text-emerald-400">{sales > 0 ? `+${formatNumber(sales)}` : formatNumber(0)}</div>
+                                                {refunds > 0 && <div className="text-xs text-red-500">-{formatNumber(refunds)}</div>}
                                             </td>
                                             <td className="px-5 py-4 text-right border-l dark:border-slate-800 font-semibold text-slate-900 dark:text-slate-100 bg-slate-50/50 dark:bg-slate-900/20">
-                                                {formatCurrency(expected)}
+                                                {formatNumber(expected)}
                                             </td>
                                             <td className="px-5 py-4 text-right font-medium text-slate-900 dark:text-slate-100">
-                                                {actual !== null ? formatCurrency(actual) : "-"}
+                                                {actual !== null ? formatNumber(actual) : "-"}
                                             </td>
                                             <td className="px-5 py-4 text-right">
                                                 {diff !== null ? (
                                                     <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${diff === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : diff > 0 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                        {diff > 0 ? `+${formatCurrency(diff)}` : formatCurrency(diff)}
+                                                        {diff > 0 ? `+${formatNumber(diff)}` : formatNumber(diff)}
                                                     </span>
                                                 ) : "-"}
                                             </td>

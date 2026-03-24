@@ -38,7 +38,6 @@ export default function ActivityLogsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2 text-slate-900 dark:text-slate-50">
-                        <History className="h-8 w-8 text-blue-600" />
                         Activity Logs
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400">

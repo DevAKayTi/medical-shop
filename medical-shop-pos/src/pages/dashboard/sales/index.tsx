@@ -21,12 +21,9 @@ import { Input } from "@/components/ui/Input";
 export default function SalesHistoryPage() {
     const [sales, setSales] = useState<ApiSale[]>([]);
     const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [lastPage, setLastPage] = useState(1);
     const [ConfirmDialog, confirm] = useConfirm();
 
     // Filters
-    const [statusFilter, setStatusFilter] = useState<string>("all");
     const [searchInvoice, setSearchInvoice] = useState("");
 
     // Selection for Details Modal
@@ -40,8 +37,7 @@ export default function SalesHistoryPage() {
     const loadSales = async () => {
         setLoading(true);
         try {
-            const params: any = { page };
-            if (statusFilter !== "all") params.status = statusFilter;
+            const params: any = { all: true };
             // The backend might not support invoice search natively in index yet without tweaking, 
             // but we can pass it if we add it to the backend later. For now, we will rely on pagination.
 
@@ -55,10 +51,6 @@ export default function SalesHistoryPage() {
             }
 
             setSales(data);
-            // If the API returns pagination metadata, we should use it. 
-            // Our saleApi.list definition expects { data, total, per_page } but the actual backend 
-            // paginate() returns { data, current_page, last_page, total }
-            setLastPage((res as any).last_page || 1);
 
         } catch (err) {
             console.error("Failed to load sales:", err);
@@ -70,7 +62,7 @@ export default function SalesHistoryPage() {
     useEffect(() => {
         loadSales();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, statusFilter]);
+    }, []);
 
     // Re-filter when search changes locally if we only have the current page data
     useEffect(() => {
@@ -81,19 +73,24 @@ export default function SalesHistoryPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchInvoice]);
 
-    const handleVoidSale = async (id: string) => {
+    const handleVoidSale = async (sale: ApiSale) => {
         const isConfirmed = await confirm({
             title: "Void Sale?",
             description: "Are you sure you want to void this sale? This action will return items to stock and adjust shift session totals.",
             confirmText: "Yes, Void Sale",
-            variant: "destructive"
+            variant: "destructive",
+            confirmInput: {
+                label: "Confirm Invoice Number",
+                placeholder: "Type invoice number to confirm",
+                requiredValue: sale.invoice_number
+            }
         });
         if (!isConfirmed) return;
 
         try {
-            await saleApi.void(id);
+            await saleApi.void(sale.id);
             await loadSales(); // Re-fetch all sales from the backend
-            if (selectedSale?.id === id) {
+            if (selectedSale?.id === sale.id) {
                 setSelectedSale({ ...selectedSale, status: "refunded" });
             }
         } catch (err: any) {
@@ -160,17 +157,7 @@ export default function SalesHistoryPage() {
                         />
                     </div>
 
-                    <div className="flex bg-white dark:bg-slate-900 rounded-md border border-slate-200 dark:border-slate-800 p-1 w-fit mt-2 sm:mt-0 flex-wrap">
-                        {["all", "completed", "returned"].map(s => (
-                            <button
-                                key={s}
-                                onClick={() => { setStatusFilter(s); setPage(1); }}
-                                className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${statusFilter === s ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"}`}
-                            >
-                                {s}
-                            </button>
-                        ))}
-                    </div>
+                    <div />
                 </div>
 
                 <div className="overflow-x-auto">
@@ -181,6 +168,7 @@ export default function SalesHistoryPage() {
                                 <th className="px-5 py-3 font-medium">Date & Time</th>
                                 <th className="px-5 py-3 font-medium">Customer</th>
                                 <th className="px-5 py-3 font-medium">Cashier</th>
+                                <th className="px-5 py-3 font-medium">Register</th>
                                 <th className="px-5 py-3 font-medium text-right">Total (MMK)</th>
                                 <th className="px-5 py-3 font-medium text-center">Status</th>
                                 <th className="px-5 py-3 font-medium text-right">Actions</th>
@@ -224,6 +212,9 @@ export default function SalesHistoryPage() {
                                         <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
                                             {sale.cashier?.name || "Unknown"}
                                         </td>
+                                        <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                                            {sale.register?.name || "—"}
+                                        </td>
                                         <td className="px-5 py-4 text-right font-semibold text-slate-900 dark:text-slate-100">
                                             {formatNumber(Number(sale.total))}
                                         </td>
@@ -247,7 +238,7 @@ export default function SalesHistoryPage() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => handleVoidSale(sale.id)}
+                                                        onClick={() => handleVoidSale(sale)}
                                                         className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/50"
                                                     >
                                                         <Ban className="h-3.5 w-3.5 mr-1" /> Void
@@ -262,32 +253,6 @@ export default function SalesHistoryPage() {
                     </table>
                 </div>
 
-                {/* Pagination */}
-                {lastPage > 1 && (
-                    <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 px-6 py-4">
-                        <p className="text-sm text-slate-500">
-                            Page <span className="font-medium">{page}</span> of <span className="font-medium">{lastPage}</span>
-                        </p>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                            >
-                                <ChevronLeft className="h-4 w-4 mr-1" /> Prev
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.min(lastPage, p + 1))}
-                                disabled={page === lastPage}
-                            >
-                                Next <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </Card>
 
             {/* View Details Modal */}
@@ -300,9 +265,10 @@ export default function SalesHistoryPage() {
                                     <Receipt className="h-5 w-5 text-blue-500" />
                                     Invoice {selectedSale.invoice_number}
                                 </CardTitle>
-                                <p className="text-sm text-slate-500 mt-1 flex items-center gap-4">
+                                <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {formatDate(selectedSale.sold_at || selectedSale.created_at)}</span>
                                     <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> {selectedSale.cashier?.name}</span>
+                                    <span className="flex items-center gap-1 font-medium bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] text-slate-600 tracking-tight">{selectedSale.register?.name || "—"}</span>
                                 </p>
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => setShowDetails(false)}>
@@ -344,8 +310,8 @@ export default function SalesHistoryPage() {
                                         <tr>
                                             <th className="font-medium py-2">Item</th>
                                             <th className="font-medium py-2 text-right">Qty</th>
-                                            <th className="font-medium py-2 text-right">Price</th>
-                                            <th className="font-medium py-2 text-right">Total</th>
+                                            <th className="font-medium py-2 text-right">Price (MMK)</th>
+                                            <th className="font-medium py-2 text-right">Total (MMK)</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -356,32 +322,44 @@ export default function SalesHistoryPage() {
                                                     {item.batch && <p className="text-xs text-slate-500">Batch: {item.batch.batch_number}</p>}
                                                 </td>
                                                 <td className="py-2.5 text-right">{item.quantity}</td>
-                                                <td className="py-2.5 text-right">{formatCurrency(Number(item.unit_price))}</td>
-                                                <td className="py-2.5 text-right font-medium">{formatCurrency(Number(item.total))}</td>
+                                                <td className="py-2.5 text-right">{formatNumber(Number(item.unit_price))}</td>
+                                                <td className="py-2.5 text-right font-medium">{formatNumber(Number(item.total))}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot className="border-t-2 dark:border-slate-800">
-                                        <tr>
-                                            <th colSpan={3} className="py-2 text-right text-slate-500 font-normal">Subtotal</th>
-                                            <td className="py-2 text-right">{formatCurrency(Number(selectedSale.subtotal))}</td>
-                                        </tr>
-                                        {Number(selectedSale.discount) > 0 && (
-                                            <tr>
-                                                <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Discount</th>
-                                                <td className="py-1 text-right text-red-500">-{formatCurrency(Number(selectedSale.discount))}</td>
-                                            </tr>
-                                        )}
-                                        {Number(selectedSale.tax) > 0 && (
-                                            <tr>
-                                                <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Tax</th>
-                                                <td className="py-1 text-right">{formatCurrency(Number(selectedSale.tax))}</td>
-                                            </tr>
-                                        )}
-                                        <tr>
-                                            <th colSpan={3} className="py-3 text-right font-bold text-slate-900 dark:text-slate-100 uppercase text-xs tracking-wider">Total</th>
-                                            <td className="py-3 text-right font-bold text-lg text-slate-900 dark:text-slate-100">{formatCurrency(Number(selectedSale.total))}</td>
-                                        </tr>
+                                        {(() => {
+                                            const total = Number(selectedSale.total);
+                                            const subtotal = Number(selectedSale.subtotal);
+                                            const discount = Number(selectedSale.discount);
+                                            const tax = Number(selectedSale.tax);
+                                            const isRefund = total < 0;
+
+                                            return (
+                                                <>
+                                                    <tr>
+                                                        <th colSpan={3} className="py-2 text-right text-slate-500 font-normal">Subtotal</th>
+                                                        <td className="py-2 text-right">{formatNumber(subtotal)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Discount</th>
+                                                        <td className={`py-1 text-right ${isRefund ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                            {isRefund ? '+' : '-'}{formatNumber(Math.abs(discount))}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colSpan={3} className="py-1 text-right text-slate-500 font-normal">Tax</th>
+                                                        <td className="py-1 text-right">
+                                                            {isRefund ? '-' : '+'}{formatNumber(Math.abs(tax))}
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th colSpan={3} className="py-3 text-right font-bold text-slate-900 dark:text-slate-100 uppercase text-xs tracking-wider">Total</th>
+                                                        <td className="py-3 text-right font-bold text-lg text-slate-900 dark:text-slate-100">{formatNumber(total)}</td>
+                                                    </tr>
+                                                </>
+                                            );
+                                        })()}
                                     </tfoot>
                                 </table>
                             </div>
@@ -396,12 +374,12 @@ export default function SalesHistoryPage() {
                                                     {p.method}
                                                     {p.reference && <span className="text-xs text-slate-400 font-normal">(Ref: {p.reference})</span>}
                                                 </span>
-                                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(p.amount))}</span>
+                                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatNumber(Number(p.amount))}</span>
                                             </li>
                                         ))}
                                         <li className="flex justify-between pt-2 px-2.5">
                                             <span className="text-slate-500">Change Returned:</span>
-                                            <span className="font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(Number(selectedSale.change_amount))}</span>
+                                            <span className="font-semibold text-slate-700 dark:text-slate-300">{formatNumber(Number(selectedSale.change_amount))}</span>
                                         </li>
                                     </ul>
                                 </div>
