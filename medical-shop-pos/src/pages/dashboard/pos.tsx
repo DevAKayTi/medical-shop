@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ApiSale, CreateSalePayload, saleApi, customerApi, ApiCustomer } from "@/lib/sales";
-import { ApiProduct, productApi } from "@/lib/inventory";
+import { ApiProduct, productApi, ApiCategory, categoryApi } from "@/lib/inventory";
 import { registerApi, shiftSessionApi, ApiCashRegister, ApiShiftSession } from "@/lib/registers";
 import { storageLib } from "@/lib/storage";
 import {
@@ -14,6 +14,7 @@ import {
 import { useReactToPrint } from "react-to-print";
 import { useToast } from "@/components/ui/ToastProvider";
 import { SelectMenu } from "@/components/ui/SelectMenu";
+import { ComboboxMenu } from "@/components/ui/ComboboxMenu";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ interface CartItem {
 
 export default function POSPage() {
     const [products, setProducts] = useState<ApiProduct[]>([]);
+    const [categories, setCategories] = useState<ApiCategory[]>([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
     const [customers, setCustomers] = useState<ApiCustomer[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -69,12 +72,14 @@ export default function POSPage() {
 
         Promise.all([
             productApi.list(),
+            categoryApi.list(),
             customerApi.list(),
             shiftSessionApi.list({ status: "open", user_id: currentUser?.id }),
             registerApi.list({ is_active: true })
         ])
-            .then(([prods, custs, sessionsData, regs]) => {
+            .then(([prods, cats, custs, sessionsData, regs]) => {
                 setProducts(prods);
+                setCategories(cats);
                 setCustomers(custs.data || []);
                 // Find if the current user has an open session
                 if (sessionsData.data && sessionsData.data.length > 0) {
@@ -139,6 +144,8 @@ export default function POSPage() {
     };
 
     const filteredProducts = products.filter(p => {
+        if (selectedCategoryId !== "all" && p.category_id !== selectedCategoryId) return false;
+
         const s = search.toLowerCase();
         return (
             p.name.toLowerCase().includes(s) ||
@@ -203,6 +210,23 @@ export default function POSPage() {
     };
 
     const removeItem = (idx: number) => setCart(c => c.filter((_, i) => i !== idx));
+
+    const setItemQty = (idx: number, val: string) => {
+        setCart(c => {
+            const updated = [...c];
+            const item = { ...updated[idx] };
+
+            let newQty = val === "" ? 0 : parseInt(val);
+            if (isNaN(newQty) || newQty < 0) newQty = 0;
+            if (newQty > item.stock) newQty = item.stock;
+
+            item.quantity = newQty;
+            item.total = Math.max(0, item.quantity * item.unit_price - item.discount);
+            updated[idx] = item;
+
+            return updated;
+        });
+    };
 
     const setItemDiscount = (idx: number, val: string) => {
         setCart(c => {
@@ -280,49 +304,91 @@ export default function POSPage() {
 
     if (lastSale) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 space-y-6 animate-in fade-in duration-500">
-                <div className="p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center justify-center h-16 w-16 shadow dark:bg-emerald-900/30 dark:border-emerald-800">
-                    <CheckCircle2 className="h-8 w-8" />
-                </div>
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Sale Complete!</h2>
-                    <p className="text-slate-500 mt-1">Invoice: <span className="font-mono font-medium">{lastSale.invoice_number}</span></p>
-                    <p className="text-slate-500">Total: <span className="font-bold text-emerald-600">{formatCurrency(Number(lastSale.total))}</span></p>
-                    {Number(lastSale.change_amount) > 0 && <p className="text-slate-500">Change: <span className="font-bold">{formatCurrency(Number(lastSale.change_amount))}</span></p>}
-                </div>
-                <div className="flex gap-3">
-                    <Button variant="outline" onClick={() => handlePrint()}>
-                        <FileText className="h-4 w-4 mr-2" /> Print Receipt
-                    </Button>
-                    <Button onClick={() => setLastSale(null)}>
-                        <Plus className="h-4 w-4 mr-2" /> New Sale
-                    </Button>
-                </div>
+            <div className="relative isolate min-h-[calc(100vh-8rem)] flex items-center justify-center px-6 py-16 overflow-hidden animate-in fade-in duration-500">
+                {/* Background blobs for glassmorphism effect */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-400/20 dark:bg-emerald-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
+                <div className="absolute top-1/2 right-1/4 -translate-y-1/3 w-[600px] h-[600px] bg-sky-400/20 dark:bg-sky-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
-                {/* Hidden print receipt */}
-                <div className="hidden">
-                    <div ref={receiptRef} className="p-6 w-[300px] text-black bg-white font-mono text-xs">
-                        <h1 className="text-lg font-bold text-center border-b pb-2 mb-2">Medical POS</h1>
-                        <p className="text-center mb-1">{new Date(lastSale.sold_at).toLocaleString()}</p>
-                        <p className="mb-1">Invoice: {lastSale.invoice_number}</p>
-                        {lastSale.customer && <p className="mb-3">Customer: {lastSale.customer.name}</p>}
-                        <div className="border-t border-b py-2 my-2 space-y-1">
-                            {lastSale.items?.map((item, i) => (
-                                <div key={i} className="flex justify-between">
-                                    <span>{item.quantity}x {item.product?.name}</span>
-                                    <span>{formatCurrency(Number(item.total))}</span>
-                                </div>
-                            ))}
+                <svg
+                    aria-hidden="true"
+                    className="absolute inset-0 -z-20 size-full mask-[radial-gradient(100%_100%_at_top_right,white,transparent)] stroke-slate-200 dark:stroke-slate-800"
+                >
+                    <defs>
+                        <pattern
+                            x="50%"
+                            y={-64}
+                            id="83fd4e5a-9d52-42fc-97b6-718e5d7ee527"
+                            width={200}
+                            height={200}
+                            patternUnits="userSpaceOnUse"
+                        >
+                            <path d="M100 200V.5M.5 .5H200" fill="none" />
+                        </pattern>
+                    </defs>
+                    <svg x="50%" y={-64} className="overflow-visible fill-slate-50 dark:fill-slate-900/50">
+                        <path
+                            d="M-100.5 0h201v201h-201Z M699.5 0h201v201h-201Z M499.5 400h201v201h-201Z M299.5 800h201v201h-201Z"
+                            strokeWidth={0}
+                        />
+                    </svg>
+                    <rect fill="url(#83fd4e5a-9d52-42fc-97b6-718e5d7ee527)" width="100%" height="100%" strokeWidth={0} />
+                </svg>
+                <div className="flex flex-col items-center justify-center w-full max-w-sm min-h-[480px] p-10 space-y-8 animate-in fade-in zoom-in duration-500 bg-white dark:bg-black/30 backdrop-blur-[40px] backdrop-saturate-[180%] border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] rounded-[32px] mx-auto ring-1 ring-black/5 dark:ring-white/5">
+
+                    <div className="p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center justify-center h-16 w-16 shadow-sm dark:bg-emerald-900/50 dark:border-emerald-700/50">
+                        <CheckCircle2 className="h-8 w-8" />
+                    </div>
+                    <div className="text-center">
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Sale Complete!</h2>
+                        <p className="text-slate-500 mt-1 text-sm">Invoice: <span className="font-mono font-medium">{lastSale.invoice_number}</span></p>
+                        <p className="text-slate-500 text-sm">{new Date(lastSale.sold_at).toLocaleString()}</p>
+                    </div>
+
+                    <div className="w-full">
+                        <div className="border-t border-slate-300/50 dark:border-slate-700/50 pt-3 mt-3 space-y-1">
+
+                            <div className="flex justify-between font-bold text-base text-slate-900 dark:text-white pt-2">
+                                <span>TOTAL</span>
+                                <span>{formatCurrency(Number(lastSale.total))}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-600 dark:text-slate-400 mt-2"><span>Paid</span><span>{formatCurrency(Number(lastSale.amount_paid))}</span></div>
+                            {Number(lastSale.change_amount) > 0 && <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium"><span>Change</span><span>{formatCurrency(Number(lastSale.change_amount))}</span></div>}
                         </div>
-                        <div className="space-y-1 mt-2">
-                            <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(Number(lastSale.subtotal))}</span></div>
-                            {Number(lastSale.discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(Number(lastSale.discount))}</span></div>}
-                            {Number(lastSale.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+{formatCurrency(Number(lastSale.tax))}</span></div>}
-                            <div className="flex justify-between font-bold text-sm border-t pt-1"><span>TOTAL</span><span>{formatCurrency(Number(lastSale.total))}</span></div>
-                            <div className="flex justify-between"><span>Paid</span><span>{formatCurrency(Number(lastSale.amount_paid))}</span></div>
-                            {Number(lastSale.change_amount) > 0 && <div className="flex justify-between"><span>Change</span><span>{formatCurrency(Number(lastSale.change_amount))}</span></div>}
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={() => handlePrint()}>
+                            <FileText className="h-4 w-4 mr-2" /> Print Receipt
+                        </Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/25" onClick={() => setLastSale(null)}>
+                            <Plus className="h-4 w-4 mr-2" /> New Sale
+                        </Button>
+                    </div>
+
+                    {/* Hidden print receipt */}
+                    <div className="hidden">
+                        <div ref={receiptRef} className="p-6 w-[300px] text-black bg-white font-mono text-xs">
+                            <h1 className="text-lg font-bold text-center border-b pb-2 mb-2">Medical POS</h1>
+                            <p className="text-center mb-1">{new Date(lastSale.sold_at).toLocaleString()}</p>
+                            <p className="mb-1">Invoice: {lastSale.invoice_number}</p>
+                            {lastSale.customer && <p className="mb-3">Customer: {lastSale.customer.name}</p>}
+                            <div className="border-t border-b py-2 my-2 space-y-1">
+                                {lastSale.items?.map((item, i) => (
+                                    <div key={i} className="flex justify-between">
+                                        <span>{item.quantity}x {item.product?.name}</span>
+                                        <span>{formatCurrency(Number(item.total))}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-1 mt-2">
+                                <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(Number(lastSale.subtotal))}</span></div>
+                                {Number(lastSale.discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(Number(lastSale.discount))}</span></div>}
+                                {Number(lastSale.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>+{formatCurrency(Number(lastSale.tax))}</span></div>}
+                                <div className="flex justify-between font-bold text-sm border-t pt-1"><span>TOTAL</span><span>{formatCurrency(Number(lastSale.total))}</span></div>
+                                <div className="flex justify-between"><span>Paid</span><span>{formatCurrency(Number(lastSale.amount_paid))}</span></div>
+                                {Number(lastSale.change_amount) > 0 && <div className="flex justify-between"><span>Change</span><span>{formatCurrency(Number(lastSale.change_amount))}</span></div>}
+                            </div>
+                            <p className="text-center mt-4">Thank you for visiting!</p>
                         </div>
-                        <p className="text-center mt-4">Thank you for visiting!</p>
                     </div>
                 </div>
             </div>
@@ -486,7 +552,7 @@ export default function POSPage() {
     // ─── POS UI ────────────────────────────────────────────────────────
 
     return (
-        <div className="flex flex-col xl:flex-row gap-4 h-[calc(100vh-8rem)] xl:h-auto animate-in fade-in duration-400 group/pos">
+        <div className="flex flex-col xl:flex-row gap-4 h-[calc(100vh-8rem)] animate-in fade-in duration-400 group/pos">
 
             {showCloseModal && activeSession && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -499,30 +565,30 @@ export default function POSPage() {
                                 <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg space-y-2 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Opening Cash:</span>
-                                        <span className="font-semibold">{formatCurrency(Number(activeSession.opening_cash))}</span>
+                                        <span className="font-semibold">{Number(activeSession.opening_cash).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Total Sales:</span>
-                                        <span className="font-semibold text-emerald-600">{formatCurrency(Number(activeSession.total_sales))}</span>
+                                        <span className="font-semibold text-emerald-600">{Number(activeSession.total_sales).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-slate-500">Total Refunds:</span>
-                                        <span className="font-semibold text-red-500">{formatCurrency(Number(activeSession.total_refunds))}</span>
+                                        <span className="font-semibold text-red-500">{Number(activeSession.total_refunds).toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between border-t pt-2 mt-2 dark:border-slate-800 font-bold">
-                                        <span>Expected Drawer:</span>
-                                        <span>{formatCurrency(Number(activeSession.opening_cash) + Number(activeSession.total_sales) - Number(activeSession.total_refunds))}</span>
+                                        <span>Expected Drawer (MMK):</span>
+                                        <span>{(Number(activeSession.opening_cash) + Number(activeSession.total_sales) - Number(activeSession.total_refunds)).toLocaleString()}</span>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Actual Closing Cash</label>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Actual Closing Cash <span className="text-sm">({getCurrencySymbol()})</span></label>
                                     <div className="relative mt-1">
-                                        <span className="absolute left-3 top-2.5 text-slate-500 text-sm">{getCurrencySymbol()}</span>
+
                                         <Input
                                             type="number"
                                             placeholder="0.00"
-                                            className="pl-7"
+                                            className="pl-3"
                                             min="0"
                                             step="0.01"
                                             value={closingCash}
@@ -535,7 +601,7 @@ export default function POSPage() {
                                 <div>
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Notes (Optional)</label>
                                     <textarea
-                                        className="mt-1 w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 flex min-h-[80px] bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="mt-1 w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 flex min-h-[80px] bg-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                         placeholder="Closing shift notes..."
                                         value={shiftNotes}
                                         onChange={e => setShiftNotes(e.target.value)}
@@ -557,19 +623,22 @@ export default function POSPage() {
             )}
 
             {/* LEFT: product grid */}
-            <div className={`flex-1 flex flex-col gap-4 min-h-0 ${activeTab === "cart" ? "hidden xl:flex" : "flex"}`}>
+            <div className={`flex-1 flex flex-col gap-4 min-h-0 min-w-0 ${activeTab === "cart" ? "hidden xl:flex" : "flex"}`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Point of Sale</h1>
+                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
                         {activeSession && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
                                 <Store className="h-3.5 w-3.5" />
                                 {activeSession.register?.name || "Unknown Register"}
                             </span>
                         )}
                     </div>
                     {activeSession && (
-                        <Button variant="outline" size="sm" onClick={() => setShowCloseModal(true)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/50">
+                        <Button variant="outline" size="sm" onClick={() => setShowCloseModal(true)} className="text-red-500 hover:text-red-600 hover:bg-red-500 hover:text-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/50">
                             <LogOut className="h-4 w-4 mr-2" /> End Shift
                         </Button>
                     )}
@@ -577,7 +646,7 @@ export default function POSPage() {
 
                 <Card className="flex-1 flex flex-col overflow-hidden">
                     <CardHeader className="pb-3 shrink-0">
-                        <div className="relative">
+                        <div className="relative mb-3">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
                                 placeholder="Scan barcode or search medicine / SKU…"
@@ -586,6 +655,25 @@ export default function POSPage() {
                                 onChange={e => setSearch(e.target.value)}
                                 autoFocus
                             />
+                        </div>
+
+                        {/* Categories scrollable row */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 px-1 -mx-1 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+                            <button
+                                onClick={() => setSelectedCategoryId("all")}
+                                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${selectedCategoryId === "all" ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-600"}`}
+                            >
+                                All Products
+                            </button>
+                            {categories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setSelectedCategoryId(cat.id)}
+                                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${selectedCategoryId === cat.id ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-500 hover:text-emerald-600"}`}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 overflow-y-auto p-0">
@@ -602,7 +690,7 @@ export default function POSPage() {
                                             onClick={() => addToCart(p)}
                                             className={`border rounded-xl p-3 cursor-pointer transition-all duration-150 flex flex-col justify-between h-28 select-none ${isOutOfStock
                                                 ? "opacity-50 grayscale border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 cursor-not-allowed"
-                                                : "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500/50 active:scale-95 bg-white dark:bg-slate-900 dark:border-slate-800"
+                                                : "hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 dark:hover:border-emerald-500/50 active:scale-95 bg-white dark:bg-slate-900 dark:border-slate-800"
                                                 }`}
                                         >
                                             <div>
@@ -610,10 +698,10 @@ export default function POSPage() {
                                                 <p className="text-xs text-slate-400 mt-0.5 truncate">{p.generic_name || p.sku}</p>
                                             </div>
                                             <div className="flex justify-between items-center mt-2">
-                                                <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(Number(p.selling_price || p.mrp))}</span>
-                                                <span className={`text-xs px-1.5 py-0.5 rounded border ${isOutOfStock
+                                                <span className="font-bold text-slate-800 dark:text-slate-400">{formatCurrency(Number(p.selling_price || p.mrp))}</span>
+                                                <span className={`text-xs px-1.5 py-0.5 rounded border font-bold ${isOutOfStock
                                                     ? "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30"
-                                                    : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:border-slate-700"
+                                                    : "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-800 dark:text-emerald-400 dark:border-emerald-700"
                                                     }`}>
                                                     {isOutOfStock ? "Out of Stock" : stock}
                                                 </span>
@@ -633,13 +721,13 @@ export default function POSPage() {
             </div>
 
             {/* RIGHT: cart & payment */}
-            <div className={`w-full xl:w-96 flex flex-col gap-4 shrink-0 ${activeTab === "products" ? "hidden xl:flex" : "flex"}`}>
+            <div className={`w-full xl:w-96 flex flex-col gap-4 shrink-0 xl:h-full ${activeTab === "products" ? "hidden xl:flex" : "flex"}`}>
                 <Card className="flex-1 flex flex-col overflow-hidden">
                     <CardHeader className="py-3 px-4 bg-slate-50 border-b dark:bg-slate-900/50 dark:border-slate-800 shrink-0">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <ShoppingCart className="h-5 w-5" />
-                                Cart {cart.length > 0 && <span className="text-xs font-normal bg-blue-600 text-white rounded-full px-2 py-0.5">{cart.length}</span>}
+                                Cart {cart.length > 0 && <span className="text-xs font-normal bg-emerald-600 text-white rounded-full px-2 py-0.5">{cart.length}</span>}
                             </CardTitle>
                             {cart.length > 0 && (
                                 <button onClick={() => setCart([])} className="text-xs text-red-500 hover:underline">Clear all</button>
@@ -649,7 +737,7 @@ export default function POSPage() {
 
                     <CardContent className="flex-1 overflow-y-auto p-3 space-y-2">
                         {cart.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-32 text-slate-300 dark:text-slate-600">
+                            <div className="w-full h-full flex flex-col items-center justify-center h-32 text-slate-300 dark:text-slate-600">
                                 <ShoppingCart className="h-8 w-8 mb-2" />
                                 <p className="text-sm">Cart is empty</p>
                                 <p className="text-xs">Click a product to add it</p>
@@ -664,11 +752,18 @@ export default function POSPage() {
                                 </div>
                                 <div className="flex items-center justify-between mt-2 gap-2">
                                     <div className="flex items-center gap-1">
-                                        <button onClick={() => changeQty(idx, -1)} className="h-6 w-6 rounded border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800">
+                                        <button onClick={() => changeQty(idx, -1)} className="h-6 w-6 rounded border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
                                             <Minus className="h-3 w-3" />
                                         </button>
-                                        <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                                        <button onClick={() => changeQty(idx, 1)} className="h-6 w-6 rounded border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="w-12 h-6 text-center text-sm font-bold border rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-700 mx-1"
+                                            value={item.quantity || ""}
+                                            onChange={e => setItemQty(idx, e.target.value)}
+                                            onBlur={() => { if (item.quantity <= 0) removeItem(idx); }}
+                                        />
+                                        <button onClick={() => changeQty(idx, 1)} className="h-6 w-6 rounded border flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0">
                                             <Plus className="h-3 w-3" />
                                         </button>
                                     </div>
@@ -681,10 +776,10 @@ export default function POSPage() {
                                                 value={item.discount || ""}
                                                 onChange={e => setItemDiscount(idx, e.target.value)}
                                                 placeholder="Disc"
-                                                className="w-16 h-7 pl-4 pr-1 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                className="w-16 h-7 pl-4 pr-1 text-xs border rounded dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                             />
                                         </div>
-                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(item.total)}</span>
+                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{item.total.toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
@@ -696,21 +791,26 @@ export default function POSPage() {
                         {/* Customer selection */}
                         <div className="flex gap-2">
                             <div className="relative flex-1">
-                                <UserCheck className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                                <select
+                                <div className="absolute left-2.5 top-[10px] z-10 pointer-events-none">
+                                    <UserCheck className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <ComboboxMenu
                                     value={selectedCustomerId}
-                                    onChange={e => setSelectedCustomerId(e.target.value)}
-                                    className="w-full h-9 pl-8 pr-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Walk-in Customer</option>
-                                    {customers.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ""}</option>
-                                    ))}
-                                </select>
+                                    onChange={setSelectedCustomerId}
+                                    options={[
+                                        { value: "", label: "Walk-in Customer" },
+                                        ...customers.map(c => ({
+                                            value: c.id,
+                                            label: `${c.name} ${c.phone ? `(${c.phone})` : ""}`
+                                        }))
+                                    ]}
+                                    placeholder="Search customer..."
+                                    className="h-9 py-0 pl-8 pr-8 text-sm leading-8"
+                                />
                             </div>
                             <button
                                 onClick={() => setShowNotes(!showNotes)}
-                                className={`h-9 w-9 rounded-md border flex items-center justify-center transition-colors ${showNotes ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                                className={`h-9 w-9 rounded-md border flex items-center justify-center transition-colors ${showNotes ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-300 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                                 title="Add notes"
                             >
                                 <StickyNote className="h-3.5 w-3.5" />
@@ -723,7 +823,7 @@ export default function POSPage() {
                                 onChange={e => setNotes(e.target.value)}
                                 rows={2}
                                 placeholder="Sale notes…"
-                                className="w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 resize-none"
+                                className="w-full text-sm rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-slate-900 resize-none"
                             />
                         )}
 
@@ -753,9 +853,9 @@ export default function POSPage() {
                                 <button
                                     key={method}
                                     onClick={() => setPaymentMethod(method)}
-                                    className={`px-2 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${paymentMethod === method ? "bg-blue-600 text-white" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-blue-400"}`}
+                                    className={`px-2 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${paymentMethod === method ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-emerald-400"}`}
                                 >
-                                    {method.replace("_", " ")}
+                                    {method === "bank_transfer" ? "bank" : method.replace("_", " ")}
                                 </button>
                             ))}
                         </div>
@@ -774,7 +874,7 @@ export default function POSPage() {
                                 />
                                 {paid > 0 && (
                                     <span className={`absolute right-2 top-2 text-xs font-medium ${change >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                                        {change >= 0 ? `+${formatCurrency(change)}` : formatCurrency(paid - grandTotal)}
+                                        {change >= 0 ? `+${change.toLocaleString()}` : (paid - grandTotal).toLocaleString()}
                                     </span>
                                 )}
                             </div>
@@ -804,7 +904,7 @@ export default function POSPage() {
                     <button
                         onClick={() => setActiveTab(activeTab === "products" ? "cart" : "products")}
                         className={`relative flex items-center gap-2 h-11 px-6 rounded-lg font-bold transition-all ${activeTab === "products"
-                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 active:scale-95"
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20 active:scale-95"
                             : "bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200"
                             }`}
                     >
