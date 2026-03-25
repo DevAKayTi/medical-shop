@@ -5,7 +5,7 @@ import { authLib } from "@/lib/auth";
 import { shopLib } from "@/lib/shop";
 import { Sidebar } from "@/components/Sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
-import { Menu } from "lucide-react";
+import { Menu, MapPin } from "lucide-react";
 
 export function DashboardLayout() {
     const navigate = useNavigate();
@@ -83,15 +83,34 @@ export function DashboardLayout() {
                         >
                             <Menu className="h-5 w-5" />
                         </button>
-                        <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate flex-1">
-                            {shop?.name ?? "Medical POS"}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                                {shop?.name ?? "Medical POS"}
+                            </p>
+                            {shop?.city && (
+                                <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                    <MapPin className="h-3 w-3 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+                                    {shop.city}
+                                </p>
+                            )}
+                        </div>
 
                         <NotificationBell />
                     </div>
 
                     {/* Desktop top bar with notification bell */}
-                    <div className="sticky top-0 z-10 hidden lg:flex shrink-0 items-center justify-end border-b border-slate-200/60 dark:border-slate-800/60 bg-white/75 dark:bg-slate-900/70 backdrop-blur-sm px-6 py-3">
+                    <div className="sticky top-0 z-10 hidden lg:flex shrink-0 items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 bg-white/75 dark:bg-slate-900/70 backdrop-blur-sm px-6 py-3">
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                                {shop?.name ?? "Medical POS"}
+                            </p>
+                            {shop?.city && (
+                                <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                    <MapPin className="h-3 w-3 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+                                    {shop.city}
+                                </p>
+                            )}
+                        </div>
                         <NotificationBell />
                     </div>
 

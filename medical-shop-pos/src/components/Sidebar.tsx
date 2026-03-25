@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { User, ShopInfo } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
 import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock, MonitorStop, TrendingUp, History, UserCog } from "lucide-react";
+import mediPosLogo from "@/assets/medi_pos_logo.png";
 
 interface SidebarProps {
     user: User;
@@ -39,12 +40,12 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
     return (
         <div className="flex h-full w-64 flex-col bg-gradient-to-b from-teal-950 via-emerald-950 to-teal-950 border-r border-teal-900/50 text-slate-300">
             {/* Shop Branding */}
-            <div className="px-5 py-4 border-b border-slate-800">
+            <div className="px-5 py-4 border-b border-white/15">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white flex-shrink-0">
-                        <Store className="h-5 w-5" />
+                    <div className="flex items-center justify-center flex-shrink-0">
+                        <img src={mediPosLogo} alt="Medical POS Logo" className="ml-6 h-[80px] w-auto object-contain" />
                     </div>
-                    <div className="min-w-0 flex-1">
+                    {/* <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-white leading-tight">
                             {shop?.name ?? "Medical POS"}
                         </p>
@@ -54,21 +55,11 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
                                 {shop.city}
                             </p>
                         )}
-                    </div>
-                    {/* Close button — only shown on mobile */}
-                    {onClose && (
-                        <button
-                            onClick={onClose}
-                            className="lg:hidden ml-auto p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex-shrink-0"
-                            aria-label="Close sidebar"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                        </button>
-                    )}
+                    </div> */}
                 </div>
 
                 {/* Shop status badge */}
-                {shop && (
+                {/* {shop && (
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <span className="inline-flex items-center rounded-full bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-400 capitalize">
                             {shop.status}
@@ -79,7 +70,7 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
                             </span>
                         )}
                     </div>
-                )}
+                )} */}
             </div>
 
             <div className="flex-1 overflow-y-auto py-4">
@@ -106,7 +97,7 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
                 </nav>
             </div>
 
-            <div className="border-t border-slate-800 p-4">
+            <div className="border-t border-white/15 p-4">
                 <div className="mb-4 px-2">
                     <p className="text-sm font-medium text-white">{user.name}</p>
                     <p className="text-xs text-slate-400">{user.email}</p>
