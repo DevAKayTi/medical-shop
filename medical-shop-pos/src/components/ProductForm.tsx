@@ -61,7 +61,6 @@ const productSchema = z.object({
     manufacturer: z.string().max(191).nullable().optional().or(z.literal("")),
     unit: z.string().min(1, "Unit is required"),
     mrp: z.coerce.number().min(0, "MRP must be at least 0"),
-    tax_rate: z.coerce.number().min(0).max(100).optional().default(0),
     is_controlled_drug: z.boolean().default(false),
     prescription_required: z.boolean().default(false),
     description: z.string().nullable().optional().or(z.literal("")),
@@ -95,7 +94,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
             manufacturer: "",
             unit: "",
             mrp: 0,
-            tax_rate: 0,
             is_controlled_drug: false,
             prescription_required: false,
             description: "",
@@ -115,7 +113,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                 manufacturer: initialData.manufacturer ?? "",
                 unit: initialData.unit ?? "",
                 mrp: Number(initialData.mrp),
-                tax_rate: Number(initialData.tax_rate ?? 0),
                 is_controlled_drug: !!initialData.is_controlled_drug,
                 prescription_required: !!initialData.prescription_required,
                 description: initialData.description ?? "",
@@ -330,17 +327,6 @@ export function ProductForm({ initialData, categories, onSubmit, onCancel }: Pro
                         {fieldError("mrp")}
                     </div>
 
-                    <div className="space-y-1.5">
-                        <label htmlFor={`${id}-tax_rate`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tax Rate (%)</label>
-                        <Input
-                            {...register("tax_rate")}
-                            id={`${id}-tax_rate`}
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                        />
-                    </div>
 
                     <div className="space-y-1.5 z-10 relative">
                         <label htmlFor={`${id}-unit`} className="text-sm font-semibold text-slate-700 dark:text-slate-300">

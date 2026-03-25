@@ -93,10 +93,7 @@ export function ProductView({ product, categories, onClose }: Props) {
                         <dt className="text-sm/6 font-medium text-slate-900 dark:text-white">MRP (Selling Price)</dt>
                         <dd className="mt-1 text-sm/6 font-semibold text-slate-900 sm:mt-2 dark:text-slate-100">{product.mrp} {getCurrencySymbol()}</dd>
                     </div>
-                    <div className="border-t border-slate-100 px-4 py-6 sm:col-span-1 sm:px-0 dark:border-slate-800">
-                        <dt className="text-sm/6 font-medium text-slate-900 dark:text-white">Tax Rate</dt>
-                        <dd className="mt-1 text-sm/6 text-slate-700 sm:mt-2 dark:text-slate-400">{product.tax_rate}%</dd>
-                    </div>
+
 
                     <div className="border-t border-slate-100 px-4 py-6 sm:col-span-2 sm:px-0 dark:border-slate-800">
                         <dt className="text-sm/6 font-medium text-slate-900 dark:text-white">Status & Flags</dt>

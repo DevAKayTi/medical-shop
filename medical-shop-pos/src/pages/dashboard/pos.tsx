@@ -25,7 +25,6 @@ interface CartItem {
     quantity: number;
     unit_price: number;
     discount: number;
-    tax: number;
     total: number;
     stock: number;
 }
@@ -38,6 +37,10 @@ export default function POSPage() {
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
     const [customers, setCustomers] = useState<ApiCustomer[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Global tax rate from shop settings
+    const shopSettings = storageLib.getItem<{ taxRate?: number }>("shop_settings");
+    const globalTaxRate = Number(shopSettings?.taxRate ?? 0);
 
     const [search, setSearch] = useState("");
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -182,7 +185,6 @@ export default function POSPage() {
                 quantity: 1,
                 unit_price: price,
                 discount: 0,
-                tax: Number(product.tax_rate || 0),
                 total: price,
                 stock,
             }]);
@@ -246,8 +248,9 @@ export default function POSPage() {
 
     const subtotal = cart.reduce((s, i) => s + i.quantity * i.unit_price, 0);
     const totalDiscount = cart.reduce((s, i) => s + i.discount, 0);
-    const totalTax = cart.reduce((s, i) => s + (i.quantity * i.unit_price - i.discount) * (i.tax / 100), 0);
-    const grandTotal = subtotal - totalDiscount + totalTax;
+    const taxableAmount = subtotal - totalDiscount;
+    const totalTax = parseFloat(((taxableAmount * globalTaxRate) / 100).toFixed(2));
+    const grandTotal = taxableAmount + totalTax;
     const paid = parseFloat(amountPaid) || 0;
     const change = Math.max(0, paid - grandTotal);
 
@@ -276,7 +279,7 @@ export default function POSPage() {
                     quantity: i.quantity,
                     unit_price: i.unit_price,
                     discount: i.discount,
-                    tax: i.tax,
+                    tax: globalTaxRate,
                     total: parseFloat(i.total.toFixed(2)),
                 })),
                 payments: [{
@@ -839,7 +842,7 @@ export default function POSPage() {
                             )}
                             {totalTax > 0 && (
                                 <div className="flex justify-between text-amber-600">
-                                    <span>Tax</span><span>+{formatCurrency(totalTax)}</span>
+                                    <span>Tax ({globalTaxRate}%)</span><span>+{formatCurrency(totalTax)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-lg font-bold text-slate-900 dark:text-white border-t pt-2 dark:border-slate-700">

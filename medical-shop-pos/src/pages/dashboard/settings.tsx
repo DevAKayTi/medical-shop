@@ -1,237 +1,179 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { ShopSettings, storageLib } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
-import { userApi, ApiUser } from "@/lib/users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Store, ShieldAlert, Download, UserPlus, Trash2, RefreshCw, Edit } from "lucide-react";
+import { Store, ShieldAlert, Hash, AlertTriangle, FileText, Building2, Image } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/ToastProvider";
-import { useConfirm } from "@/hooks/useConfirm";
+import api from "@/lib/api";
+
+// ── Schemas ───────────────────────────────────────────────────────────────────
+
+const shopProfileSchema = z.object({
+    name: z.string().min(1, "Shop name is required."),
+    email: z.string().email("Invalid email address."),
+    phone: z.string().max(30).optional().or(z.literal("")),
+    address: z.string().max(500).optional().or(z.literal("")),
+    country: z.string().max(100).optional().or(z.literal("")),
+    city: z.string().max(100).optional().or(z.literal("")),
+    logo_url: z.string().url("Must be a valid URL").max(500).optional().or(z.literal("")),
+});
 
 const shopSettingsSchema = z.object({
-    shopName: z.string().min(1, "Shop Name is required."),
-    taxRate: z.coerce.number().min(0, "Tax Rate must be at least 0."),
+    taxRate: z.coerce.number().min(0, "Tax Rate must be at least 0.").max(100),
     currencySymbol: z.string().min(1, "Currency Symbol is required."),
+    invoicePrefix: z.string().min(1, "Invoice Prefix is required.").max(20),
+    invoiceCounter: z.coerce.number().int().min(1, "Must be at least 1"),
+    lowStockThreshold: z.coerce.number().int().min(0, "Must be at least 0"),
+    receiptFooter: z.string().max(500).optional().default(""),
 });
 
-const userSchema = z.object({
-    name: z.string().min(1, "Name is required."),
-    email: z.string().email("Invalid email address."),
-    phone: z.string().optional(),
-    role: z.enum(["Admin", "Manager", "Cashier"]),
-    password: z.string().optional(),
-    password_confirmation: z.string().optional(),
-}).refine((data) => {
-    if (data.password || data.password_confirmation) {
-        return data.password === data.password_confirmation;
-    }
-    return true;
-}, {
-    message: "Passwords do not match.",
-    path: ["password_confirmation"],
-});
-
+type ShopProfileValues = z.infer<typeof shopProfileSchema>;
 type ShopSettingsValues = z.infer<typeof shopSettingsSchema>;
-type UserFormValues = z.infer<typeof userSchema>;
 
-// Role slug mapping for the backend
-const ROLE_SLUGS: Record<string, string> = {
-    Admin: "admin",
-    Manager: "manager",
-    Cashier: "staff",
-};
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
     const toast = useToast();
-    const [ConfirmDialog, confirm] = useConfirm();
 
-    const {
-        register: registerSettings,
-        handleSubmit: handleSubmitSettings,
-        reset: resetSettings,
-        formState: { errors: settingsErrors },
-    } = useForm<ShopSettingsValues>({
-        resolver: zodResolver(shopSettingsSchema) as any,
-        defaultValues: {
-            shopName: "Medical Shop POS",
-            taxRate: 5.0,
-            currencySymbol: "MMK",
-        },
-    });
-
-    const [users, setUsers] = useState<ApiUser[]>([]);
-    const [loadingUsers, setLoadingUsers] = useState(false);
-    const [usersError, setUsersError] = useState<string | null>(null);
-    const [editingUserId, setEditingUserId] = useState<string | null>(null);
-
-    const {
-        register: registerUser,
-        handleSubmit: handleSubmitUser,
-        reset: resetUser,
-        setError: setUserError,
-        formState: { errors: userErrors, isSubmitting: creating },
-    } = useForm<UserFormValues>({
-        resolver: zodResolver(userSchema),
+    const profileForm = useForm<ShopProfileValues>({
+        resolver: zodResolver(shopProfileSchema) as any,
         defaultValues: {
             name: "",
             email: "",
             phone: "",
-            role: "Cashier",
-            password: "",
-            password_confirmation: "",
+            address: "",
+            country: "",
+            city: "",
+            logo_url: "",
         },
     });
 
-    const currentUser = storageLib.getAuthUser();
+    const settingsForm = useForm<ShopSettingsValues>({
+        resolver: zodResolver(shopSettingsSchema) as any,
+        defaultValues: {
+            taxRate: 5.0,
+            currencySymbol: "MMK",
+            invoicePrefix: "INV-",
+            invoiceCounter: 1,
+            lowStockThreshold: 10,
+            receiptFooter: "Thank you for your purchase!",
+        },
+    });
 
     useEffect(() => {
-        loadSettings();
-        fetchUsers();
+        loadFromApi();
     }, []);
 
-    const loadSettings = () => {
-        const s = storageLib.getItem<ShopSettings>("shop_settings");
-        if (s) {
-            resetSettings({
-                shopName: s.shopName,
-                taxRate: s.taxRate,
-                currencySymbol: s.currencySymbol,
+    const loadFromApi = async () => {
+        // Fast load from localStorage first
+        const local = storageLib.getItem<ShopSettings>("shop_settings");
+        if (local) {
+            settingsForm.reset({
+                taxRate: local.taxRate,
+                currencySymbol: local.currencySymbol,
+                invoicePrefix: local.invoicePrefix ?? "INV-",
+                invoiceCounter: local.invoiceCounter ?? 1,
+                lowStockThreshold: local.lowStockThreshold ?? 10,
+                receiptFooter: local.receiptFooter ?? "",
             });
         }
-    };
+        const localShop = storageLib.getShop();
+        if (localShop) {
+            profileForm.reset({
+                name: localShop.name ?? "",
+                email: localShop.email ?? "",
+                phone: localShop.phone ?? "",
+                address: localShop.address ?? "",
+                country: localShop.country ?? "",
+                city: localShop.city ?? "",
+                logo_url: localShop.logo_url ?? "",
+            });
+        }
 
-    const fetchUsers = async () => {
-        setLoadingUsers(true);
-        setUsersError(null);
+        // Then fetch fresh from API
         try {
-            const data = await userApi.list();
-            setUsers(data);
-        } catch (err: any) {
-            setUsersError("Failed to load staff directory.");
-        } finally {
-            setLoadingUsers(false);
+            const res = await api.get('/shop');
+            const shopData = res.data;
+            const s = shopData.settings;
+
+            profileForm.reset({
+                name: shopData.name ?? "",
+                email: shopData.email ?? "",
+                phone: shopData.phone ?? "",
+                address: shopData.address ?? "",
+                country: shopData.country ?? "",
+                city: shopData.city ?? "",
+                logo_url: shopData.logo_url ?? "",
+            });
+
+            if (s) {
+                const merged: ShopSettings = {
+                    shopName: shopData.name,
+                    taxRate: Number(s.tax_rate ?? 5),
+                    currencySymbol: s.currency ?? "MMK",
+                    invoicePrefix: s.invoice_prefix ?? "INV-",
+                    invoiceCounter: Number(s.invoice_counter ?? 1),
+                    lowStockThreshold: Number(s.low_stock_threshold ?? 10),
+                    receiptFooter: s.receipt_footer ?? "",
+                };
+                settingsForm.reset({
+                    taxRate: merged.taxRate,
+                    currencySymbol: merged.currencySymbol,
+                    invoicePrefix: merged.invoicePrefix,
+                    invoiceCounter: merged.invoiceCounter,
+                    lowStockThreshold: merged.lowStockThreshold,
+                    receiptFooter: merged.receiptFooter,
+                });
+                storageLib.setItem("shop_settings", merged);
+            }
+
+            // Keep shop_info cache fresh
+            storageLib.setShop(shopData);
+        } catch {
+            // Silently fallback to localStorage
         }
     };
 
-    const handleSaveSettings = (data: ShopSettingsValues) => {
-        storageLib.setItem("shop_settings", data);
-        toast.success("Shop settings saved successfully.");
-    };
-
-    const handleSaveUser = async (data: UserFormValues) => {
-        if (!editingUserId && !data.password) {
-            setUserError("password", { type: "manual", message: "Password is required for new users." });
-            return;
-        }
-
+    const handleSaveProfile = async (data: ShopProfileValues) => {
         try {
-            const payload: any = {
-                ...data,
-                phone: data.phone || undefined,
-                role: ROLE_SLUGS[data.role] || "staff",
-                is_active: true,
-            };
-
-            if (!payload.password) {
-                delete payload.password;
-                delete payload.password_confirmation;
-            }
-
-            if (editingUserId) {
-                const updated = await userApi.update(editingUserId, payload);
-                setUsers((prev: any) => prev.map((u: any) => u.id === editingUserId ? updated : u));
-                setEditingUserId(null);
-                resetUser({ name: "", email: "", phone: "", role: "Cashier", password: "", password_confirmation: "" });
-                toast.success(`User "${updated.name}" updated successfully.`);
-            } else {
-                const created = await userApi.create(payload);
-                setUsers((prev: any) => [...prev, created]);
-                resetUser({ name: "", email: "", phone: "", role: "Cashier", password: "", password_confirmation: "" });
-                toast.success(`User "${created.name}" created successfully.`);
-            }
+            const res = await api.put('/shop/profile', data);
+            storageLib.setShop(res.data);
+            toast.success("Shop profile updated successfully.");
         } catch (err: any) {
             const msg = err?.response?.data?.message
                 || (err?.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(" ") : null)
-                || `Failed to ${editingUserId ? 'update' : 'create'} user.`;
+                || "Failed to update shop profile.";
             toast.error(msg);
         }
     };
 
-    const handleEditUser = (user: ApiUser) => {
-        setEditingUserId(user.id);
-        const label = userApi.getRoleLabel(user.roles);
-        resetUser({
-            name: user.name,
-            email: user.email,
-            phone: user.phone || "",
-            role: (label as any) || "Cashier",
-            password: "",
-            password_confirmation: "",
-        });
-    };
-
-    const cancelEdit = () => {
-        setEditingUserId(null);
-        resetUser({ name: "", email: "", phone: "", role: "Cashier", password: "", password_confirmation: "" });
-    };
-
-    const handleDeleteUser = async (user: ApiUser) => {
-        if (user.id === currentUser?.id) {
-            toast.error("You cannot delete your own account.");
-            return;
-        }
-
-        const isConfirmed = await confirm({
-            title: "Delete User?",
-            description: `Delete user "${user.name}"? This action cannot be undone.`,
-            confirmText: "Yes, Delete User",
-            variant: "destructive"
-        });
-        if (!isConfirmed) return;
+    const handleSaveSettings = async (data: ShopSettingsValues) => {
+        // Update localStorage
+        const existing = storageLib.getItem<ShopSettings>("shop_settings");
+        storageLib.setItem("shop_settings", { ...existing, ...data, shopName: existing?.shopName ?? "" } as ShopSettings);
 
         try {
-            await userApi.remove(user.id);
-            setUsers(prev => prev.filter(u => u.id !== user.id));
-            toast.success(`User "${user.name}" deleted.`);
+            await api.put('/shop/settings', {
+                currency: data.currencySymbol,
+                tax_rate: data.taxRate,
+                invoice_prefix: data.invoicePrefix,
+                invoice_counter: data.invoiceCounter,
+                low_stock_threshold: data.lowStockThreshold,
+                receipt_footer: data.receiptFooter || null,
+            });
+            toast.success("Shop settings saved successfully.");
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || "Failed to delete user.");
+            const msg = err?.response?.data?.message || "Failed to save settings.";
+            toast.error(msg);
         }
     };
 
-    const handleExportBackup = () => {
-        const backupData = {
-            timestamp: new Date().toISOString(),
-            shop_settings: storageLib.getItem("shop_settings"),
-        };
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `medical_pos_backup_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const getRoleBadge = (user: ApiUser) => {
-        const label = userApi.getRoleLabel(user.roles);
-        const colors: Record<string, string> = {
-            Admin: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-            Manager: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-            Cashier: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-        };
-        return (
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[label] || colors.Cashier}`}>
-                {label}
-            </span>
-        );
-    };
-
-    if (!authLib.hasPermission('read-settings') && !authLib.hasPermission('read-users')) {
+    if (!authLib.hasPermission('read-settings')) {
         return (
             <div className="flex h-[400px] flex-col items-center justify-center space-y-4 rounded-md border border-dashed border-red-300 bg-red-50 text-center dark:border-red-900/50 dark:bg-red-900/10">
                 <ShieldAlert className="h-10 w-10 text-red-500" />
@@ -243,201 +185,173 @@ export default function SettingsPage() {
         );
     }
 
+    const pe = profileForm.formState.errors;
+    const se = settingsForm.formState.errors;
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Settings</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 sm:mt-0">
-                        Manage your shop configuration, users, and data backups.
-                    </p>
-                </div>
-                {authLib.hasPermission('manage-settings') && (
-                    <Button variant="outline" onClick={handleExportBackup} className="flex-shrink-0 w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-900/20">
-                        <Download className="mr-2 h-4 w-4" /> Export Backup
-                    </Button>
-                )}
+            <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Settings</h1>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                    Manage your shop profile and configuration.
+                </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-                {/* Shop Configuration */}
-                {authLib.hasPermission('read-settings') && (
-                    <Card>
-                        <form onSubmit={handleSubmitSettings(handleSaveSettings)}>
-                            <CardHeader>
-                                <CardTitle className="flex items-center text-lg">
-                                    <Store className="mr-2 h-5 w-5 text-indigo-500" />
-                                    Shop Configuration
-                                </CardTitle>
-                                <CardDescription>Adjust global store attributes applied to receipts and totals.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Shop Name</label>
-                                    <Input
-                                        {...registerSettings("shopName")}
-                                        className={settingsErrors.shopName ? 'border-red-500' : ''}
-                                    />
-                                    {settingsErrors.shopName && <p className="text-red-500 text-xs">{settingsErrors.shopName.message}</p>}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Global Tax Rate (%)</label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        {...registerSettings("taxRate")}
-                                        className={settingsErrors.taxRate ? 'border-red-500' : ''}
-                                    />
-                                    {settingsErrors.taxRate && <p className="text-red-500 text-xs">{settingsErrors.taxRate.message}</p>}
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Currency Symbol</label>
-                                    <Input
-                                        {...registerSettings("currencySymbol")}
-                                        className={settingsErrors.currencySymbol ? 'border-red-500' : ''}
-                                    />
-                                    {settingsErrors.currencySymbol && <p className="text-red-500 text-xs">{settingsErrors.currencySymbol.message}</p>}
-                                </div>
-                                {authLib.hasPermission('manage-settings') && (
-                                    <Button type="submit" className="mt-2 w-full">Save Configuration</Button>
-                                )}
-                            </CardContent>
-                        </form>
-                    </Card>
-                )}
-
-                {/* User Management */}
-                {authLib.hasPermission('read-users') && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center text-lg">
-                                <UserPlus className="mr-2 h-5 w-5 text-blue-500" />
-                                User Management
-                            </CardTitle>
-                            <CardDescription>Add new POS operators or remove existing staff.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* User Form */}
-                            {((!editingUserId && authLib.hasPermission('create-users')) || (editingUserId && authLib.hasPermission('update-users'))) && (
-                                <form onSubmit={handleSubmitUser(handleSaveUser)} className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                                    <h4 className="text-sm font-medium">{editingUserId ? "Edit User" : "Add New User"}</h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <Input placeholder="Full Name" {...registerUser("name")} className={userErrors.name ? 'border-red-500' : ''} />
-                                            {userErrors.name && <p className="text-red-500 text-xs mt-1">{userErrors.name.message}</p>}
-                                        </div>
-                                        <div>
-                                            <Input placeholder="Email" type="email" {...registerUser("email")} className={userErrors.email ? 'border-red-500' : ''} />
-                                            {userErrors.email && <p className="text-red-500 text-xs mt-1">{userErrors.email.message}</p>}
-                                        </div>
-                                        <div>
-                                            <Input placeholder="Phone (optional)" {...registerUser("phone")} />
-                                        </div>
-                                        <div>
-                                            <select
-                                                {...registerUser("role")}
-                                                className={`flex h-10 w-full rounded-md border ${userErrors.role ? 'border-red-500' : 'border-slate-300'} bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-700 dark:text-slate-50`}
-                                            >
-                                                <option value="Admin">Admin</option>
-                                                <option value="Manager">Manager</option>
-                                                <option value="Cashier">Cashier</option>
-                                            </select>
-                                            {userErrors.role && <p className="text-red-500 text-xs mt-1">{userErrors.role.message}</p>}
-                                        </div>
-                                        <div>
-                                            <Input type="password" placeholder={editingUserId ? "Leave blank to keep current" : "Password"} {...registerUser("password")} className={userErrors.password ? 'border-red-500' : ''} />
-                                            {userErrors.password && <p className="text-red-500 text-xs mt-1">{userErrors.password.message}</p>}
-                                        </div>
-                                        <div>
-                                            <Input type="password" placeholder={editingUserId ? "Leave blank to keep current" : "Confirm Password"} {...registerUser("password_confirmation")} className={userErrors.password_confirmation ? 'border-red-500' : ''} />
-                                            {userErrors.password_confirmation && <p className="text-red-500 text-xs mt-1">{userErrors.password_confirmation.message}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button type="submit" size="sm" variant="secondary" className="flex-1" disabled={creating}>
-                                            {creating ? "Saving..." : editingUserId ? "Update User" : "Create User"}
-                                        </Button>
-                                        {editingUserId && (
-                                            <Button type="button" size="sm" variant="outline" onClick={cancelEdit}>
-                                                Cancel
-                                            </Button>
-                                        )}
-                                    </div>
-                                </form>
-                            )}
-
-                            {/* Active Staff Directory */}
+            {/* ── Shop Profile Form ─────────────────────────────────────── */}
+            <form onSubmit={profileForm.handleSubmit(handleSaveProfile)} className="space-y-0">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-lg">
+                            <Building2 className="mr-2 h-5 w-5 text-emerald-500" />
+                            Shop Profile
+                        </CardTitle>
+                        <CardDescription>Your business contact details shown on receipts and invoices.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                    <h4 className="text-sm font-medium">Active Staff Directory</h4>
-                                    <Button variant="ghost" size="sm" onClick={fetchUsers} disabled={loadingUsers} className="w-full sm:w-auto h-7 text-xs text-slate-500 bg-slate-100 sm:bg-transparent dark:bg-slate-800 sm:dark:bg-transparent">
-                                        <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingUsers ? 'animate-spin' : ''}`} />
-                                        Refresh
-                                    </Button>
-                                </div>
-
-                                {usersError && (
-                                    <p className="text-xs text-red-500">{usersError}</p>
-                                )}
-
-                                <div className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800 max-h-[260px] overflow-y-auto">
-                                    {loadingUsers ? (
-                                        <div className="py-6 flex items-center justify-center gap-2 text-sm text-slate-400">
-                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500" />
-                                            Loading staff...
-                                        </div>
-                                    ) : users.length === 0 ? (
-                                        <div className="py-6 text-center text-sm text-slate-400">No staff members found.</div>
-                                    ) : (
-                                        users.map(u => (
-                                            <div key={u.id} className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-medium leading-none truncate">{u.name}</p>
-                                                        {getRoleBadge(u)}
-                                                        {!u.is_active && (
-                                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                                Inactive
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs text-slate-500 mt-0.5 truncate">{u.email}</p>
-                                                </div>
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {authLib.hasPermission('update-users') && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleEditUser(u)}
-                                                            className="flex-shrink-0 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                        >
-                                                            <Edit className="h-3.5 w-3.5 text-slate-500 hover:text-blue-500 dark:text-slate-400" />
-                                                        </Button>
-                                                    )}
-                                                    {authLib.hasPermission('delete-users') && u.id !== currentUser?.id && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleDeleteUser(u)}
-                                                            className="flex-shrink-0 h-8 w-8 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                                <p className="text-xs text-slate-400 mt-1">{users.length} staff member{users.length !== 1 ? 's' : ''} registered.</p>
+                                <label className="text-sm font-medium">Shop Name <span className="text-red-500">*</span></label>
+                                <Input {...profileForm.register("name")} placeholder="My Medical Shop" className={pe.name ? 'border-red-500' : ''} />
+                                {pe.name && <p className="text-red-500 text-xs">{pe.name.message}</p>}
                             </div>
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email <span className="text-red-500">*</span></label>
+                                <Input type="email" {...profileForm.register("email")} placeholder="shop@example.com" className={pe.email ? 'border-red-500' : ''} />
+                                {pe.email && <p className="text-red-500 text-xs">{pe.email.message}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Phone</label>
+                                <Input {...profileForm.register("phone")} placeholder="+95 9 123 456 789" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">City</label>
+                                <Input {...profileForm.register("city")} placeholder="Yangon" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Country</label>
+                                <Input {...profileForm.register("country")} placeholder="Myanmar" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium flex items-center gap-1.5">
+                                    <Image className="h-3.5 w-3.5 text-slate-400" />
+                                    Logo URL
+                                </label>
+                                <Input {...profileForm.register("logo_url")} placeholder="https://..." className={pe.logo_url ? 'border-red-500' : ''} />
+                                {pe.logo_url && <p className="text-red-500 text-xs">{pe.logo_url.message}</p>}
+                            </div>
+                            <div className="space-y-2 sm:col-span-2">
+                                <label className="text-sm font-medium">Address</label>
+                                <textarea
+                                    {...profileForm.register("address")}
+                                    rows={2}
+                                    placeholder="123 Main Street, Yangon"
+                                    className="flex min-h-[60px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors resize-none"
+                                />
+                            </div>
+                        </div>
 
-            <ConfirmDialog />
-        </div >
+                        {authLib.hasPermission('manage-settings') && (
+                            <div className="flex justify-end pt-2">
+                                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8" disabled={profileForm.formState.isSubmitting}>
+                                    {profileForm.formState.isSubmitting ? "Saving..." : "Save Profile"}
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </form>
+
+            {/* ── Shop Settings Form ────────────────────────────────────── */}
+            <form onSubmit={settingsForm.handleSubmit(handleSaveSettings)} className="space-y-6">
+                {/* Billing & Tax */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-lg">
+                            <Store className="mr-2 h-5 w-5 text-emerald-500" />
+                            Billing & Tax
+                        </CardTitle>
+                        <CardDescription>Currency and global tax applied to all sales.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Currency Symbol</label>
+                            <Input {...settingsForm.register("currencySymbol")} placeholder="MMK" className={se.currencySymbol ? 'border-red-500' : ''} />
+                            {se.currencySymbol && <p className="text-red-500 text-xs">{se.currencySymbol.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Global Tax Rate (%)</label>
+                            <Input type="number" step="0.01" min="0" max="100" {...settingsForm.register("taxRate")} className={se.taxRate ? 'border-red-500' : ''} />
+                            {se.taxRate && <p className="text-red-500 text-xs">{se.taxRate.message}</p>}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Invoice Settings */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-lg">
+                            <Hash className="mr-2 h-5 w-5 text-emerald-500" />
+                            Invoice Settings
+                        </CardTitle>
+                        <CardDescription>Control how invoice numbers are generated.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Invoice Prefix</label>
+                            <Input {...settingsForm.register("invoicePrefix")} placeholder="INV-" className={se.invoicePrefix ? 'border-red-500' : ''} />
+                            {se.invoicePrefix && <p className="text-red-500 text-xs">{se.invoicePrefix.message}</p>}
+                            <p className="text-xs text-slate-400">Example: <span className="font-mono">INV-0001</span></p>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Invoice Counter (Start)</label>
+                            <Input type="number" min="1" step="1" {...settingsForm.register("invoiceCounter")} className={se.invoiceCounter ? 'border-red-500' : ''} />
+                            {se.invoiceCounter && <p className="text-red-500 text-xs">{se.invoiceCounter.message}</p>}
+                            <p className="text-xs text-slate-400">Next invoice number to be issued.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Inventory & Receipt */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center text-lg">
+                            <AlertTriangle className="mr-2 h-5 w-5 text-emerald-500" />
+                            Inventory & Receipt
+                        </CardTitle>
+                        <CardDescription>Low stock notifications and receipt footer text.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="sm:max-w-xs space-y-2">
+                            <label className="text-sm font-medium">Low Stock Threshold</label>
+                            <Input type="number" min="0" step="1" {...settingsForm.register("lowStockThreshold")} className={se.lowStockThreshold ? 'border-red-500' : ''} />
+                            {se.lowStockThreshold && <p className="text-red-500 text-xs">{se.lowStockThreshold.message}</p>}
+                            <p className="text-xs text-slate-400">Products at or below this quantity will show low-stock alerts.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-1.5">
+                                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                                Receipt Footer Message
+                            </label>
+                            <textarea
+                                {...settingsForm.register("receiptFooter")}
+                                rows={3}
+                                placeholder="Thank you for your purchase!"
+                                className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:text-slate-50 disabled:cursor-not-allowed disabled:opacity-50 transition-colors resize-none"
+                            />
+                            {se.receiptFooter && <p className="text-red-500 text-xs">{se.receiptFooter.message}</p>}
+                            <p className="text-xs text-slate-400">Appears at the bottom of every printed receipt.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {authLib.hasPermission('manage-settings') && (
+                    <div className="flex justify-end">
+                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8" disabled={settingsForm.formState.isSubmitting}>
+                            {settingsForm.formState.isSubmitting ? "Saving..." : "Save Configuration"}
+                        </Button>
+                    </div>
+                )}
+            </form>
+        </div>
     );
 }

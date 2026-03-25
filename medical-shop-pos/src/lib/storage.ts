@@ -85,14 +85,22 @@ export interface ShopSettings {
     shopName: string;
     taxRate: number;
     currencySymbol: string;
+    invoicePrefix: string;
+    invoiceCounter: number;
+    lowStockThreshold: number;
+    receiptFooter: string;
 }
 
 // Removing DEFAULT_USERS as we now use real auth
 
 const DEFAULT_SETTINGS: ShopSettings = {
     shopName: "Medical Shop POS",
-    taxRate: 5.0, // 5%
+    taxRate: 5.0,
     currencySymbol: "MMK",
+    invoicePrefix: "INV-",
+    invoiceCounter: 1,
+    lowStockThreshold: 10,
+    receiptFooter: "Thank you for your purchase!",
 };
 
 export const storageLib = {

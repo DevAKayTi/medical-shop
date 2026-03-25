@@ -41,6 +41,8 @@ Route::middleware('auth:api')->group(function () {
 
     // Shop
     Route::get('/shop', [ShopController::class, 'show']);
+    Route::put('/shop/settings', [ShopController::class, 'updateSettings']);
+    Route::put('/shop/profile', [ShopController::class, 'updateProfile']);
 
     // User Management
     Route::apiResource('users', UserController::class);

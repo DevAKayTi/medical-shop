@@ -9,6 +9,7 @@ import InventoryPage from "@/pages/dashboard/inventory";
 import CustomersPage from "@/pages/dashboard/customers";
 import ReportsPage from "@/pages/dashboard/reports";
 import SettingsPage from "@/pages/dashboard/settings";
+import StaffPage from "@/pages/dashboard/staff";
 import PosPage from "@/pages/dashboard/pos";
 import SalesHistoryPage from "@/pages/dashboard/sales";
 import RevenueDetailsPage from "@/pages/dashboard/revenue";
@@ -36,6 +37,7 @@ function App() {
             <Route path="shifts" element={<ShiftsPage />} />
             <Route path="activity-logs" element={<ActivityLogsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="staff" element={<StaffPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

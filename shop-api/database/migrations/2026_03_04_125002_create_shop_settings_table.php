@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('shop_settings', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('shop_id')->unique()->constrained('shops')->onDelete('cascade');
-            $table->string('currency', 10)->default('USD');
+            $table->string('currency', 10)->default('MMK');
             $table->decimal('tax_rate', 5, 2)->default(0.00);
             $table->string('invoice_prefix', 20)->default('INV-');
             $table->bigInteger('invoice_counter')->default(1);

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { User, ShopInfo } from "@/lib/storage";
 import { authLib } from "@/lib/auth";
-import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock, MonitorStop, TrendingUp, History } from "lucide-react";
+import { LayoutDashboard, PackageSearch, Receipt, Users, BarChart3, Settings, LogOut, Store, MapPin, ShoppingCart, Clock, MonitorStop, TrendingUp, History, UserCog } from "lucide-react";
 
 interface SidebarProps {
     user: User;
@@ -28,6 +28,7 @@ export function Sidebar({ user, shop, onClose }: SidebarProps) {
         { name: "Cash Registers", href: "/dashboard/registers", icon: Store, permission: "read-registers" },
         { name: "Shift History", href: "/dashboard/shifts", icon: Clock, permission: "read-shifts" },
         { name: "Activity Log", href: "/dashboard/activity-logs", icon: History, permission: "view-dashboard" },
+        { name: "Staff", href: "/dashboard/staff", icon: UserCog, permission: "read-users" },
         { name: "Reports", href: "/dashboard/reports", icon: BarChart3, permission: "view-reports" },
         { name: "Settings", href: "/dashboard/settings", icon: Settings, permission: "manage-settings" },
     ];
